@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/di/service_locator.dart';
 import '../controllers/register_controller.dart';
-import '../../domain/usecases/register_usecase.dart';
-import '../../domain/repositories/auth_repository.dart';
-import '../../domain/entities/user_entity.dart';
+import 'login_page.dart';
+import 'otp_page.dart';
 
 // ─────────────────────────────────────────────
 // Page principale
@@ -21,6 +21,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final _lastNameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _cityCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
 
@@ -30,7 +31,7 @@ class _RegisterPageState extends State<RegisterPage> {
   void initState() {
     super.initState();
     _controller = RegisterController(
-      RegisterUseCase(_PlaceholderAuthRepository()),
+      ServiceLocator.instance.registerUseCase,
     );
   }
 
@@ -40,6 +41,7 @@ class _RegisterPageState extends State<RegisterPage> {
     _lastNameCtrl.dispose();
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
+    _cityCtrl.dispose();
     _passwordCtrl.dispose();
     _confirmCtrl.dispose();
     _controller.dispose();
@@ -57,14 +59,25 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
     if (_formKey.currentState?.validate() ?? false) {
-      _controller.register(
+      _controller
+          .register(
         firstName: _firstNameCtrl.text.trim(),
         lastName: _lastNameCtrl.text.trim(),
         email: _emailCtrl.text.trim(),
         phone: _phoneCtrl.text.trim(),
+        city: _cityCtrl.text.trim(),
         password: _passwordCtrl.text,
         confirmPassword: _confirmCtrl.text,
-      );
+      )
+          .then((_) {
+        if (_controller.status == RegisterStatus.success) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => OtpPage(email: _emailCtrl.text.trim()),
+            ),
+          );
+        }
+      });
     }
   }
 
@@ -84,6 +97,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 lastNameCtrl: _lastNameCtrl,
                 emailCtrl: _emailCtrl,
                 phoneCtrl: _phoneCtrl,
+                cityCtrl: _cityCtrl,
                 passwordCtrl: _passwordCtrl,
                 confirmCtrl: _confirmCtrl,
                 controller: _controller,
@@ -163,6 +177,7 @@ class _FormSection extends StatelessWidget {
   final TextEditingController lastNameCtrl;
   final TextEditingController emailCtrl;
   final TextEditingController phoneCtrl;
+  final TextEditingController cityCtrl;
   final TextEditingController passwordCtrl;
   final TextEditingController confirmCtrl;
   final RegisterController controller;
@@ -174,6 +189,7 @@ class _FormSection extends StatelessWidget {
     required this.lastNameCtrl,
     required this.emailCtrl,
     required this.phoneCtrl,
+    required this.cityCtrl,
     required this.passwordCtrl,
     required this.confirmCtrl,
     required this.controller,
@@ -198,6 +214,7 @@ class _FormSection extends StatelessWidget {
               lastNameCtrl: lastNameCtrl,
               emailCtrl: emailCtrl,
               phoneCtrl: phoneCtrl,
+              cityCtrl: cityCtrl,
               passwordCtrl: passwordCtrl,
               confirmCtrl: confirmCtrl,
               controller: controller,
@@ -218,6 +235,7 @@ class _FormContent extends StatelessWidget {
   final TextEditingController lastNameCtrl;
   final TextEditingController emailCtrl;
   final TextEditingController phoneCtrl;
+  final TextEditingController cityCtrl;
   final TextEditingController passwordCtrl;
   final TextEditingController confirmCtrl;
   final RegisterController controller;
@@ -228,6 +246,7 @@ class _FormContent extends StatelessWidget {
     required this.lastNameCtrl,
     required this.emailCtrl,
     required this.phoneCtrl,
+    required this.cityCtrl,
     required this.passwordCtrl,
     required this.confirmCtrl,
     required this.controller,
@@ -325,6 +344,18 @@ class _FormContent extends StatelessWidget {
         ),
         const SizedBox(height: 14),
 
+        // ── Ville ──
+        const _FieldLabel('VILLE'),
+        const SizedBox(height: 6),
+        _InputField(
+          controller: cityCtrl,
+          hintText: 'Votre ville',
+          prefixIcon: Icons.location_city_outlined,
+          validator: (v) =>
+              (v == null || v.isEmpty) ? 'Ville requise' : null,
+        ),
+        const SizedBox(height: 14),
+
         // ── Mot de passe ──
         const _FieldLabel('MOT DE PASSE'),
         const SizedBox(height: 6),
@@ -345,7 +376,7 @@ class _FormContent extends StatelessWidget {
           ),
           validator: (v) {
             if (v == null || v.isEmpty) return 'Mot de passe requis';
-            if (v.length < 6) return 'Minimum 6 caractères';
+            if (v.length < 8) return 'Minimum 8 caractères';
             return null;
           },
         ),
@@ -580,8 +611,9 @@ class _FormContent extends StatelessWidget {
                       height: 1.6)),
               GestureDetector(
                 onTap: () {
-                  // TODO: navigation vers connexion
-                  Navigator.of(context).pop();
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (_) => const LoginPage()),
+                  );
                 },
                 child: const Text('Se connecter',
                     style: TextStyle(
@@ -960,31 +992,4 @@ class _GoogleIconPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-// ─────────────────────────────────────────────
-// Placeholder repository
-// ─────────────────────────────────────────────
-class _PlaceholderAuthRepository implements AuthRepository {
-  @override
-  Future<UserEntity> login({
-    required String email,
-    required String password,
-    bool rememberMe = false,
-  }) async {
-    await Future.delayed(const Duration(milliseconds: 1200));
-    throw Exception('API Laravel non connectée');
-  }
-
-  @override
-  Future<UserEntity> register({
-    required String firstName,
-    required String lastName,
-    required String email,
-    required String phone,
-    required String countryCode,
-    required String password,
-    required String confirmPassword,
-  }) async {
-    await Future.delayed(const Duration(milliseconds: 1200));
-    throw Exception('API Laravel non connectée');
-  }
-}
+// ── Fin du fichier ──

@@ -6,7 +6,9 @@ class RegisterParams {
   final String lastName;
   final String email;
   final String phone;
-  final String countryCode;
+  final String countryCode; // code dial (+228)
+  final String country;     // nom du pays (Togo)
+  final String city;
   final String password;
   final String confirmPassword;
 
@@ -16,6 +18,8 @@ class RegisterParams {
     required this.email,
     required this.phone,
     required this.countryCode,
+    required this.country,
+    required this.city,
     required this.password,
     required this.confirmPassword,
   });
@@ -33,6 +37,8 @@ class RegisterUseCase {
       email: params.email,
       phone: params.phone,
       countryCode: params.countryCode,
+      country: params.country,
+      city: params.city,
       password: params.password,
       confirmPassword: params.confirmPassword,
     );

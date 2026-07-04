@@ -13,7 +13,17 @@ abstract class AuthRepository {
     required String email,
     required String phone,
     required String countryCode,
+    required String country,
+    required String city,
     required String password,
     required String confirmPassword,
   });
+
+  /// Valide l'OTP et retourne l'utilisateur avec son token Sanctum.
+  Future<UserEntity> verifyOtp({
+    required String email,
+    required String otp,
+  });
+
+  Future<void> resendOtp({required String email});
 }

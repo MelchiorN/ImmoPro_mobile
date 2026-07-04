@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/di/service_locator.dart';
 import '../controllers/login_controller.dart';
-import '../../domain/usecases/login_usecase.dart';
-import '../../domain/repositories/auth_repository.dart';
-import '../../domain/entities/user_entity.dart';
 import 'register_page.dart';
 
 // ─────────────────────────────────────────────
@@ -27,7 +25,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
-    _controller = LoginController(LoginUseCase(_PlaceholderAuthRepository()));
+    _controller = LoginController(ServiceLocator.instance.loginUseCase);
   }
 
   @override
@@ -40,10 +38,19 @@ class _LoginPageState extends State<LoginPage> {
 
   void _onSubmit() {
     if (_formKey.currentState?.validate() ?? false) {
-      _controller.login(
+      _controller
+          .login(
         email: _emailController.text.trim(),
         password: _passwordController.text,
-      );
+      )
+          .then((_) {
+        if (_controller.status == LoginStatus.success && mounted) {
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/home',
+            (route) => false,
+          );
+        }
+      });
     }
   }
 
@@ -534,7 +541,7 @@ class _FormContent extends StatelessWidget {
               ),
               GestureDetector(
                 onTap: () {
-                  Navigator.of(context).push(
+                  Navigator.of(context).pushReplacement(
                     MaterialPageRoute(
                       builder: (_) => const RegisterPage(),
                     ),
@@ -763,18 +770,4 @@ class _GoogleIconPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-// ─────────────────────────────────────────────
-// Placeholder repository — remplacé par la vraie impl au branchement API
-// ─────────────────────────────────────────────
-class _PlaceholderAuthRepository implements AuthRepository {
-  @override
-  Future<UserEntity> login({
-    required String email,
-    required String password,
-    bool rememberMe = false,
-  }) async {
-    // Simule un appel réseau — à remplacer par AuthRepositoryImpl
-    await Future.delayed(const Duration(milliseconds: 1200));
-    throw Exception('API Laravel non connectée');
-  }
-}
+// ── Fin du fichier ──

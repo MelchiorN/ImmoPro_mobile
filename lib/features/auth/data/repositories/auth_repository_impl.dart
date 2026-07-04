@@ -12,7 +12,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required String email,
     required String password,
     bool rememberMe = false,
-  }) async {
+  }) {
     return remoteDataSource.login(email: email, password: password);
   }
 
@@ -23,17 +23,34 @@ class AuthRepositoryImpl implements AuthRepository {
     required String email,
     required String phone,
     required String countryCode,
+    required String country,
+    required String city,
     required String password,
     required String confirmPassword,
-  }) async {
+  }) {
     return remoteDataSource.register(
       firstName: firstName,
       lastName: lastName,
       email: email,
       phone: phone,
       countryCode: countryCode,
+      country: country,
+      city: city,
       password: password,
       confirmPassword: confirmPassword,
     );
+  }
+
+  @override
+  Future<UserEntity> verifyOtp({
+    required String email,
+    required String otp,
+  }) {
+    return remoteDataSource.verifyOtp(email: email, otp: otp);
+  }
+
+  @override
+  Future<void> resendOtp({required String email}) {
+    return remoteDataSource.resendOtp(email: email);
   }
 }

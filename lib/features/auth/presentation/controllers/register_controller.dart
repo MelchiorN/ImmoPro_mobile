@@ -19,6 +19,9 @@ class RegisterController extends ChangeNotifier {
   String _selectedDialCode = '+228';
   String _selectedFlag = '🇹🇬';
 
+  // Ville (saisie libre ou future liste)
+  String _city = '';
+
   RegisterStatus get status => _status;
   String? get errorMessage => _errorMessage;
   bool get obscurePassword => _obscurePassword;
@@ -27,6 +30,7 @@ class RegisterController extends ChangeNotifier {
   String get selectedCountry => _selectedCountry;
   String get selectedDialCode => _selectedDialCode;
   String get selectedFlag => _selectedFlag;
+  String get city => _city;
 
   void togglePasswordVisibility() {
     _obscurePassword = !_obscurePassword;
@@ -54,6 +58,11 @@ class RegisterController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setCity(String city) {
+    _city = city;
+    notifyListeners();
+  }
+
   Future<void> register({
     required String firstName,
     required String lastName,
@@ -61,6 +70,7 @@ class RegisterController extends ChangeNotifier {
     required String phone,
     required String password,
     required String confirmPassword,
+    String? city,
   }) async {
     _status = RegisterStatus.loading;
     _errorMessage = null;
@@ -71,15 +81,17 @@ class RegisterController extends ChangeNotifier {
         firstName: firstName,
         lastName: lastName,
         email: email,
-        phone: phone,
+        phone: '$_selectedDialCode$phone',
         countryCode: _selectedDialCode,
+        country: _selectedCountry,
+        city: city ?? _city,
         password: password,
         confirmPassword: confirmPassword,
       ));
       _status = RegisterStatus.success;
     } catch (e) {
       _status = RegisterStatus.failure;
-      _errorMessage = e.toString();
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
     }
 
     notifyListeners();
