@@ -52,6 +52,29 @@ dependencies:
   # Animations avancées
   flutter_animate: ^4.5.2
 
+  # ── Publish Property feature ─────────────────────────────────────────────
+  # Géolocalisation GPS
+  geolocator: ^13.0.2
+
+  # Reverse geocoding (coordonnées → adresse)
+  geocoding: ^3.0.0
+
+  # Sélection d'images/vidéos depuis galerie ou caméra
+  image_picker: ^1.1.2
+
+  # Sélection de fichiers (PDF, documents)
+  file_picker: ^8.1.7
+
+  # Carte interactive (OpenStreetMap, sans clé API)
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
+  # Permissions runtime
+  permission_handler: ^11.3.1
+
+  # Dotted border pour zones de drop
+  dotted_border: ^2.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

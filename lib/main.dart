@@ -7,6 +7,7 @@ import 'features/auth/presentation/pages/login_page.dart';
 import 'features/auth/presentation/pages/register_page.dart';
 import 'features/auth/presentation/pages/otp_page.dart';
 import 'features/home/presentation/pages/home_page.dart';
+import 'features/publish_property/presentation/pages/step1_info_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,6 +52,7 @@ class ImmoproApp extends StatelessWidget {
         '/login': (context) => const LoginPage(),
         '/register': (context) => const RegisterPage(),
         '/home': (context) => const HomePage(),
+        '/publish': (context) => const Step1InfoPage(),
       },
 
       // ── Route dynamique pour OTP (email passé en argument) ─────────────

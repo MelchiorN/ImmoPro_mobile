@@ -5,6 +5,10 @@ import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/domain/usecases/login_usecase.dart';
 import '../../features/auth/domain/usecases/register_usecase.dart';
 import '../../features/auth/domain/usecases/verify_otp_usecase.dart';
+import '../../features/publish_property/data/datasources/publish_remote_datasource.dart';
+import '../../features/publish_property/data/repositories/publish_repository_impl.dart';
+import '../../features/publish_property/domain/usecases/submit_property_usecase.dart';
+import '../../features/publish_property/presentation/controllers/publish_controller.dart';
 
 /// Service Locator simple pour l'injection de dépendances.
 ///
@@ -36,4 +40,20 @@ class ServiceLocator {
       VerifyOtpUseCase(authRepository);
   late final ResendOtpUseCase resendOtpUseCase =
       ResendOtpUseCase(authRepository);
+
+  // ── Publish property ──────────────────────────────────────────────────────
+  late final PublishRemoteDataSource publishRemoteDataSource =
+      PublishRemoteDataSourceImpl(apiClient);
+
+  late final PublishRepositoryImpl publishRepository =
+      PublishRepositoryImpl(publishRemoteDataSource);
+
+  late final SubmitPropertyUseCase submitPropertyUseCase =
+      SubmitPropertyUseCase(publishRepository);
+
+  /// Crée une NOUVELLE instance du controller à chaque appel.
+  /// Le controller est stateful (brouillon multi-étapes) donc ne doit pas
+  /// être partagé — chaque flow de publication démarre avec un controller frais.
+  PublishController createPublishController() =>
+      PublishController(submitPropertyUseCase);
 }

@@ -41,7 +41,7 @@ class ApiClient {
   //    → Lancer : adb reverse tcp:8000 tcp:8000
   //    → defaultValue: 'http://localhost:8000/api'
   //
-  // 3. Vrai appareil via ngrok 
+  // 3. Vrai appareil via ngrok
   //   → defaultValue: 'https://devout-terese-unaneled.ngrok-free.dev -> http://localhost:8000 '
   //
   // 4. Vrai appareil via WiFi (même réseau)
@@ -50,7 +50,9 @@ class ApiClient {
   static const String _baseUrl = String.fromEnvironment(
     'API_URL',
     // defaultValue: 'http://192.168.2.100:8000/api',
-    defaultValue: 'https://devout-terese-unaneled.ngrok-free.dev'
+    // defaultValue: 'https://devout-terese-unaneled.ngrok-free.dev'
+    defaultValue: 'http://localhost:8000/api'
+    // defaultValue: 'http://10.0.2.2:8000/api'
   );
 
   static const String _tokenKey = 'sanctum_token';
@@ -163,4 +165,83 @@ class ApiClient {
     );
     return _parseResponse(response);
   }
+
+  /// Requête PUT (avec authentification Sanctum).
+  Future<Map<String, dynamic>> putAuth(
+    String path,
+    Map<String, dynamic> data,
+  ) async {
+    final response = await _client.put(
+      Uri.parse('$_baseUrl$path'),
+      headers: await _buildHeaders(auth: true),
+      body: json.encode(data),
+    );
+    return _parseResponse(response);
+  }
+
+  /// Requête DELETE (avec authentification Sanctum).
+  Future<Map<String, dynamic>> deleteAuth(String path) async {
+    final response = await _client.delete(
+      Uri.parse('$_baseUrl$path'),
+      headers: await _buildHeaders(auth: true),
+    );
+    return _parseResponse(response);
+  }
+
+  /// Requête multipart POST — pour upload de fichiers (biens, médias, docs).
+  Future<Map<String, dynamic>> postMultipart(
+    String path, {
+    required Map<String, String> fields,
+    required List<MultipartFileEntry> files,
+  }) async {
+    final token = await getToken();
+    final request = http.MultipartRequest('POST', Uri.parse('$_baseUrl$path'));
+
+    request.headers['Accept'] = 'application/json';
+    request.headers['X-Platform'] = defaultTargetPlatform.name;
+    if (token != null) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+
+    // Champs texte
+    request.fields.addAll(fields);
+
+    // Fichiers
+    for (final entry in files) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          entry.fieldName,
+          entry.filePath,
+          filename: entry.fileName,
+        ),
+      );
+    }
+
+    debugPrint('── API MULTIPART POST ────────────────');
+    debugPrint('URL    : $_baseUrl$path');
+    debugPrint('Fields : $fields');
+    debugPrint('Files  : ${files.map((f) => f.fieldName).toList()}');
+
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+
+    debugPrint('Status : ${response.statusCode}');
+    debugPrint('Body   : ${response.body}');
+    debugPrint('──────────────────────────────────────');
+
+    return _parseResponse(response);
+  }
+}
+
+/// Entrée de fichier pour les requêtes multipart.
+class MultipartFileEntry {
+  final String fieldName;
+  final String filePath;
+  final String? fileName;
+
+  const MultipartFileEntry({
+    required this.fieldName,
+    required this.filePath,
+    this.fileName,
+  });
 }

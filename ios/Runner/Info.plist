@@ -45,5 +45,12 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Permissions de localisation pour le GPS (geolocator) -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>ImmoPro utilise votre position pour localiser votre bien immobilier sur la carte.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>ImmoPro utilise votre position pour localiser votre bien immobilier sur la carte.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>ImmoPro utilise votre position pour localiser votre bien immobilier sur la carte.</string>
 </dict>
 </plist>
