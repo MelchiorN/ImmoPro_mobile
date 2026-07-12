@@ -1,28 +1,19 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 
-class SearchSection extends StatefulWidget {
+class SearchSection extends StatelessWidget {
+  final TextEditingController? controller;
   final ValueChanged<String>? onSearch;
   final VoidCallback? onFilterTap;
+  final bool hasActiveFilters;
 
   const SearchSection({
     super.key,
+    this.controller,
     this.onSearch,
     this.onFilterTap,
+    this.hasActiveFilters = false,
   });
-
-  @override
-  State<SearchSection> createState() => _SearchSectionState();
-}
-
-class _SearchSectionState extends State<SearchSection> {
-  final TextEditingController _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,15 +27,15 @@ class _SearchSectionState extends State<SearchSection> {
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF1A56A0).withOpacity(0.05),
+              color: const Color(0xFF1A56A0).withValues(alpha: 0.05),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
           ],
         ),
         child: TextField(
-          controller: _controller,
-          onSubmitted: widget.onSearch,
+          controller: controller,
+          onSubmitted: onSearch,
           style: const TextStyle(
             fontFamily: 'HankenGrotesk',
             fontSize: 16,
@@ -70,23 +61,39 @@ class _SearchSectionState extends State<SearchSection> {
                 size: 24,
               ),
             ),
-            prefixIconConstraints: const BoxConstraints(
-              minWidth: 48,
-            ),
+            prefixIconConstraints: const BoxConstraints(minWidth: 48),
             suffixIcon: GestureDetector(
-              onTap: widget.onFilterTap,
-              child: const Padding(
-                padding: EdgeInsets.only(right: 16, left: 8),
-                child: Icon(
-                  Icons.tune,
-                  color: AppColors.primary,
-                  size: 24,
+              onTap: onFilterTap,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 14, left: 8),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Icon(
+                      Icons.tune,
+                      color: hasActiveFilters
+                          ? AppColors.primaryContainer
+                          : AppColors.primary,
+                      size: 24,
+                    ),
+                    if (hasActiveFilters)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: AppColors.error,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
-            suffixIconConstraints: const BoxConstraints(
-              minWidth: 48,
-            ),
+            suffixIconConstraints: const BoxConstraints(minWidth: 48),
           ),
         ),
       ),

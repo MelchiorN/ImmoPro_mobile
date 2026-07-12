@@ -31,7 +31,18 @@ class ApiClient {
 
   static final ApiClient instance = ApiClient._();
 
-  static const String _baseUrl = 'http://localhost:8000/api';
+  static String get baseUrl {
+    const envUrl = String.fromEnvironment('API_URL', defaultValue: '');
+    if (envUrl.isNotEmpty) {
+      return envUrl;
+    }
+
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:8000/api';
+    }
+
+    return 'http://localhost:8000/api';
+  }
 
   static const String _tokenKey = 'sanctum_token';
 
@@ -100,7 +111,7 @@ class ApiClient {
     String path,
     Map<String, dynamic> data,
   ) async {
-    final url = '$_baseUrl$path';
+    final url = '${baseUrl}$path';
     final headers = await _buildHeaders();
     final encodedBody = json.encode(data);
 

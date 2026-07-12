@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/usecases/verify_otp_usecase.dart';
+import '../../../../core/di/service_locator.dart';
 
 enum OtpStatus { idle, loading, success, failure }
 
@@ -65,6 +66,7 @@ class OtpController extends ChangeNotifier {
       _authenticatedUser = await verifyOtpUseCase(
         VerifyOtpParams(email: email, otp: otp),
       );
+      ServiceLocator.instance.currentUser = _authenticatedUser;
       _status = OtpStatus.success;
     } catch (e) {
       _status = OtpStatus.failure;

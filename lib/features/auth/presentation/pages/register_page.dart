@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/services/country_service.dart';
+import '../../../../core/widgets/country_autocomplete_field.dart';
+import '../../../../core/widgets/city_autocomplete_field.dart';
 import '../controllers/register_controller.dart';
 import 'login_page.dart';
 import 'otp_page.dart';
@@ -21,9 +24,12 @@ class _RegisterPageState extends State<RegisterPage> {
   final _lastNameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  final _cityCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
+
+  // Pays et ville gérés via les widgets autocomplete
+  CountryModel? _selectedCountryModel;
+  String? _selectedCity;
 
   late final RegisterController _controller;
 
@@ -41,7 +47,6 @@ class _RegisterPageState extends State<RegisterPage> {
     _lastNameCtrl.dispose();
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
-    _cityCtrl.dispose();
     _passwordCtrl.dispose();
     _confirmCtrl.dispose();
     _controller.dispose();
@@ -59,14 +64,22 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
     if (_formKey.currentState?.validate() ?? false) {
+      // Synchroniser le pays sélectionné dans le controller
+      if (_selectedCountryModel != null) {
+        _controller.selectCountry(
+          country:  _selectedCountryModel!.name,
+          dialCode: _selectedCountryModel!.dialCode,
+          flag:     _selectedCountryModel!.flagEmoji,
+        );
+      }
       _controller
           .register(
         firstName: _firstNameCtrl.text.trim(),
-        lastName: _lastNameCtrl.text.trim(),
-        email: _emailCtrl.text.trim(),
-        phone: _phoneCtrl.text.trim(),
-        city: _cityCtrl.text.trim(),
-        password: _passwordCtrl.text,
+        lastName:  _lastNameCtrl.text.trim(),
+        email:     _emailCtrl.text.trim(),
+        phone:     _phoneCtrl.text.trim(),
+        city:      _selectedCity ?? '',
+        password:        _passwordCtrl.text,
         confirmPassword: _confirmCtrl.text,
       )
           .then((_) {
@@ -97,11 +110,22 @@ class _RegisterPageState extends State<RegisterPage> {
                 lastNameCtrl: _lastNameCtrl,
                 emailCtrl: _emailCtrl,
                 phoneCtrl: _phoneCtrl,
-                cityCtrl: _cityCtrl,
                 passwordCtrl: _passwordCtrl,
                 confirmCtrl: _confirmCtrl,
                 controller: _controller,
                 onSubmit: _onSubmit,
+                onCountrySelected: (model) {
+                  setState(() => _selectedCountryModel = model);
+                  if (model != null) {
+                    _controller.selectCountry(
+                      country:  model.name,
+                      dialCode: model.dialCode,
+                      flag:     model.flagEmoji,
+                    );
+                  }
+                },
+                onCitySelected: (city) => setState(() => _selectedCity = city),
+                selectedCountryModel: _selectedCountryModel,
               ),
             ),
           ],
@@ -177,11 +201,13 @@ class _FormSection extends StatelessWidget {
   final TextEditingController lastNameCtrl;
   final TextEditingController emailCtrl;
   final TextEditingController phoneCtrl;
-  final TextEditingController cityCtrl;
   final TextEditingController passwordCtrl;
   final TextEditingController confirmCtrl;
   final RegisterController controller;
   final VoidCallback onSubmit;
+  final void Function(CountryModel?) onCountrySelected;
+  final void Function(String?) onCitySelected;
+  final CountryModel? selectedCountryModel;
 
   const _FormSection({
     required this.formKey,
@@ -189,11 +215,13 @@ class _FormSection extends StatelessWidget {
     required this.lastNameCtrl,
     required this.emailCtrl,
     required this.phoneCtrl,
-    required this.cityCtrl,
     required this.passwordCtrl,
     required this.confirmCtrl,
     required this.controller,
     required this.onSubmit,
+    required this.onCountrySelected,
+    required this.onCitySelected,
+    this.selectedCountryModel,
   });
 
   @override
@@ -214,11 +242,13 @@ class _FormSection extends StatelessWidget {
               lastNameCtrl: lastNameCtrl,
               emailCtrl: emailCtrl,
               phoneCtrl: phoneCtrl,
-              cityCtrl: cityCtrl,
               passwordCtrl: passwordCtrl,
               confirmCtrl: confirmCtrl,
               controller: controller,
               onSubmit: onSubmit,
+              onCountrySelected: onCountrySelected,
+              onCitySelected: onCitySelected,
+              selectedCountryModel: selectedCountryModel,
             ),
           ),
         ),
@@ -235,22 +265,26 @@ class _FormContent extends StatelessWidget {
   final TextEditingController lastNameCtrl;
   final TextEditingController emailCtrl;
   final TextEditingController phoneCtrl;
-  final TextEditingController cityCtrl;
   final TextEditingController passwordCtrl;
   final TextEditingController confirmCtrl;
   final RegisterController controller;
   final VoidCallback onSubmit;
+  final void Function(CountryModel?) onCountrySelected;
+  final void Function(String?) onCitySelected;
+  final CountryModel? selectedCountryModel;
 
   const _FormContent({
     required this.firstNameCtrl,
     required this.lastNameCtrl,
     required this.emailCtrl,
     required this.phoneCtrl,
-    required this.cityCtrl,
     required this.passwordCtrl,
     required this.confirmCtrl,
     required this.controller,
     required this.onSubmit,
+    required this.onCountrySelected,
+    required this.onCitySelected,
+    this.selectedCountryModel,
   });
 
   @override
@@ -332,7 +366,10 @@ class _FormContent extends StatelessWidget {
         // ── Pays ──
         const _FieldLabel('PAYS'),
         const SizedBox(height: 6),
-        _CountryPickerField(controller: controller),
+        CountryAutocompleteField(
+          onCountrySelected: onCountrySelected,
+          hintText: 'Rechercher un pays…',
+        ),
         const SizedBox(height: 14),
 
         // ── Téléphone ──
@@ -347,12 +384,10 @@ class _FormContent extends StatelessWidget {
         // ── Ville ──
         const _FieldLabel('VILLE'),
         const SizedBox(height: 6),
-        _InputField(
-          controller: cityCtrl,
-          hintText: 'Votre ville',
-          prefixIcon: Icons.location_city_outlined,
-          validator: (v) =>
-              (v == null || v.isEmpty) ? 'Ville requise' : null,
+        CityAutocompleteField(
+          countryName: selectedCountryModel?.name,
+          onCitySelected: onCitySelected,
+          hintText: 'Rechercher une ville…',
         ),
         const SizedBox(height: 14),
 
@@ -718,95 +753,6 @@ class _InputField extends StatelessWidget {
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.error, width: 1.5),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Sélecteur de pays (modal bottom sheet) ──
-class _CountryPickerField extends StatelessWidget {
-  final RegisterController controller;
-  const _CountryPickerField({required this.controller});
-
-  static const _countries = [
-    {'name': 'Togo', 'dial': '+228', 'flag': '🇹🇬'},
-    {'name': 'Bénin', 'dial': '+229', 'flag': '🇧🇯'},
-    {'name': 'Côte d\'Ivoire', 'dial': '+225', 'flag': '🇨🇮'},
-    {'name': 'Sénégal', 'dial': '+221', 'flag': '🇸🇳'},
-    {'name': 'Cameroun', 'dial': '+237', 'flag': '🇨🇲'},
-    {'name': 'Mali', 'dial': '+223', 'flag': '🇲🇱'},
-    {'name': 'Burkina Faso', 'dial': '+226', 'flag': '🇧🇫'},
-    {'name': 'Niger', 'dial': '+227', 'flag': '🇳🇪'},
-    {'name': 'Ghana', 'dial': '+233', 'flag': '🇬🇭'},
-    {'name': 'Nigeria', 'dial': '+234', 'flag': '🇳🇬'},
-    {'name': 'France', 'dial': '+33', 'flag': '🇫🇷'},
-  ];
-
-  void _showCountryPicker(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (_) => ListView.builder(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _countries.length,
-        itemBuilder: (ctx, i) {
-          final c = _countries[i];
-          return ListTile(
-            leading: Text(c['flag']!, style: const TextStyle(fontSize: 24)),
-            title: Text(c['name']!,
-                style: const TextStyle(
-                    fontFamily: 'HankenGrotesk',
-                    fontSize: 16,
-                    color: AppColors.onSurface)),
-            trailing: Text(c['dial']!,
-                style: const TextStyle(
-                    fontFamily: 'HankenGrotesk',
-                    fontSize: 14,
-                    color: AppColors.onSurfaceVariant)),
-            onTap: () {
-              controller.selectCountry(
-                  country: c['name']!,
-                  dialCode: c['dial']!,
-                  flag: c['flag']!);
-              Navigator.pop(context);
-            },
-          );
-        },
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => _showCountryPicker(context),
-      child: Container(
-        height: 56,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.outlineVariant),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.flag_outlined, color: AppColors.outline, size: 22),
-            const SizedBox(width: 12),
-            Text(controller.selectedFlag, style: const TextStyle(fontSize: 20)),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                controller.selectedCountry,
-                style: const TextStyle(
-                    fontFamily: 'HankenGrotesk',
-                    fontSize: 16,
-                    color: AppColors.onSurface),
-              ),
-            ),
-            const Icon(Icons.expand_more, color: AppColors.outline, size: 22),
-          ],
         ),
       ),
     );

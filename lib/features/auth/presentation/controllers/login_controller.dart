@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../../domain/usecases/login_usecase.dart';
+import '../../../../core/di/service_locator.dart';
 
 enum LoginStatus { idle, loading, success, failure }
 
@@ -37,11 +38,12 @@ class LoginController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await loginUseCase(LoginParams(
+      final user = await loginUseCase(LoginParams(
         email: email,
         password: password,
         rememberMe: _rememberMe,
       ));
+      ServiceLocator.instance.currentUser = user;
       _status = LoginStatus.success;
     } catch (e) {
       _status = LoginStatus.failure;

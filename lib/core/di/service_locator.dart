@@ -1,4 +1,5 @@
 import '../network/api_client.dart';
+import '../../features/auth/domain/entities/user_entity.dart';
 import '../../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
@@ -9,6 +10,13 @@ import '../../features/publish_property/data/datasources/publish_remote_datasour
 import '../../features/publish_property/data/repositories/publish_repository_impl.dart';
 import '../../features/publish_property/domain/usecases/submit_property_usecase.dart';
 import '../../features/publish_property/presentation/controllers/publish_controller.dart';
+import '../../features/profile/data/datasources/profile_remote_datasource.dart';
+import '../../features/profile/data/repositories/profile_repository_impl.dart';
+import '../../features/profile/domain/repositories/profile_repository.dart';
+import '../../features/profile/domain/usecases/update_profile_usecase.dart';
+import '../../features/profile/domain/usecases/change_password_usecase.dart';
+import '../../features/profile/domain/usecases/toggle_2fa_usecase.dart';
+import '../../features/profile/domain/usecases/update_photo_usecase.dart';
 
 /// Service Locator simple pour l'injection de dépendances.
 ///
@@ -21,6 +29,9 @@ class ServiceLocator {
   ServiceLocator._();
 
   static final ServiceLocator instance = ServiceLocator._();
+
+  // ── Session ──────────────────────────────────────────────────────────────
+  UserEntity? currentUser;
 
   // ── Network ──────────────────────────────────────────────────────────────
   final ApiClient apiClient = ApiClient.instance;
@@ -56,4 +67,23 @@ class ServiceLocator {
   /// être partagé — chaque flow de publication démarre avec un controller frais.
   PublishController createPublishController() =>
       PublishController(submitPropertyUseCase);
+
+  // ── Profile ───────────────────────────────────────────────────────────────
+  late final ProfileRemoteDataSource profileRemoteDataSource =
+      ProfileRemoteDataSourceImpl(apiClient);
+
+  late final ProfileRepository profileRepository =
+      ProfileRepositoryImpl(profileRemoteDataSource);
+
+  late final UpdateProfileUseCase updateProfileUseCase =
+      UpdateProfileUseCase(profileRepository);
+
+  late final ChangePasswordUseCase changePasswordUseCase =
+      ChangePasswordUseCase(profileRepository);
+
+  late final Toggle2FAUseCase toggle2FAUseCase =
+      Toggle2FAUseCase(profileRepository);
+
+  late final UpdatePhotoUseCase updatePhotoUseCase =
+      UpdatePhotoUseCase(profileRepository);
 }

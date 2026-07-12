@@ -68,8 +68,7 @@ class AppTheme {
         primary: AppColors.primary,
         onPrimary: AppColors.onPrimary,
         secondary: AppColors.secondary,
-        background: AppColors.background,
-        surface: AppColors.surface,
+        surface: AppColors.background, // surface remplace background (deprecated)
         error: AppColors.error,
       ),
       scaffoldBackgroundColor: AppColors.background,

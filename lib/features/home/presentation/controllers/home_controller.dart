@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../../domain/entities/property_entity.dart';
+import '../../../../core/di/service_locator.dart';
 import '../../domain/usecases/get_recent_properties_usecase.dart';
 import '../../domain/usecases/get_properties_by_category_usecase.dart';
 import '../../domain/usecases/search_properties_usecase.dart';
@@ -25,16 +26,28 @@ class HomeController extends ChangeNotifier {
   List<String> _categories = [];
   String _selectedCategory = 'Tous';
   String? _errorMessage;
-  String _userName = 'Jean';
   int _currentNavIndex = 0;
+
+  // Filtres actifs
+  String? _filterTypeTransaction;
+  double? _filterPrixMin;
+  double? _filterPrixMax;
+  double? _filterSurfaceMin;
+  bool _hasActiveFilters = false;
 
   HomeStatus get status => _status;
   List<PropertyEntity> get properties => _properties;
   List<String> get categories => _categories;
   String get selectedCategory => _selectedCategory;
   String? get errorMessage => _errorMessage;
-  String get userName => _userName;
+  String get userName => ServiceLocator.instance.currentUser?.firstName ?? '';
   int get currentNavIndex => _currentNavIndex;
+  bool get hasActiveFilters => _hasActiveFilters;
+
+  String? get filterTypeTransaction => _filterTypeTransaction;
+  double? get filterPrixMin => _filterPrixMin;
+  double? get filterPrixMax => _filterPrixMax;
+  double? get filterSurfaceMin => _filterSurfaceMin;
 
   /// Initialise la page d'accueil (catégories + biens)
   Future<void> init() async {
@@ -43,14 +56,9 @@ class HomeController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final results = await Future.wait([
-        getCategoriesUseCase(),
-        getRecentPropertiesUseCase(),
-      ]);
-
-      _categories = results[0] as List<String>;
-      _properties = results[1] as List<PropertyEntity>;
-      _selectedCategory = _categories.isNotEmpty ? _categories.first : 'Tous';
+      _categories = await getCategoriesUseCase();
+      _selectedCategory = 'Tous';
+      _properties = await getRecentPropertiesUseCase();
       _status = HomeStatus.loaded;
     } catch (e) {
       _status = HomeStatus.error;
@@ -78,9 +86,9 @@ class HomeController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Recherche de biens par mot-clé
+  /// Recherche de biens par mot-clé (avec filtres optionnels)
   Future<void> search(String query) async {
-    if (query.isEmpty) {
+    if (query.isEmpty && !_hasActiveFilters) {
       await init();
       return;
     }
@@ -89,7 +97,13 @@ class HomeController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _properties = await searchPropertiesUseCase(query);
+      _properties = await searchPropertiesUseCase(SearchParams(
+        query: query,
+        typeTransaction: _filterTypeTransaction,
+        prixMin: _filterPrixMin,
+        prixMax: _filterPrixMax,
+        surfaceMin: _filterSurfaceMin,
+      ));
       _status = HomeStatus.loaded;
     } catch (e) {
       _status = HomeStatus.error;
@@ -97,6 +111,36 @@ class HomeController extends ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  /// Applique des filtres et relance la recherche/liste
+  Future<void> applyFilters({
+    String? typeTransaction,
+    double? prixMin,
+    double? prixMax,
+    double? surfaceMin,
+    String currentQuery = '',
+  }) async {
+    _filterTypeTransaction = typeTransaction;
+    _filterPrixMin = prixMin;
+    _filterPrixMax = prixMax;
+    _filterSurfaceMin = surfaceMin;
+    _hasActiveFilters = typeTransaction != null ||
+        prixMin != null ||
+        prixMax != null ||
+        surfaceMin != null;
+
+    await search(currentQuery);
+  }
+
+  /// Réinitialise les filtres
+  Future<void> clearFilters() async {
+    _filterTypeTransaction = null;
+    _filterPrixMin = null;
+    _filterPrixMax = null;
+    _filterSurfaceMin = null;
+    _hasActiveFilters = false;
+    await init();
   }
 
   /// Change l'onglet de la barre de navigation

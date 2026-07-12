@@ -13,7 +13,7 @@ class MapSection extends StatelessWidget {
           'Près de vous',
           style: TextStyle(
             fontFamily: 'Manrope',
-            fontSize: 22,
+            fontSize: 20,
             fontWeight: FontWeight.w700,
             color: AppColors.onBackground,
           ),
@@ -22,90 +22,55 @@ class MapSection extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: Container(
-            height: 220,
+            height: 200,
             decoration: BoxDecoration(
+              color: const Color(0xFFE8F0F9),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: AppColors.outlineVariant.withOpacity(0.3),
-              ),
+              border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF1A56A0).withOpacity(0.08),
-                  blurRadius: 16,
+                  color: const Color(0xFF1A56A0).withValues(alpha: 0.07),
+                  blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: Stack(
               children: [
-                // Carte stylisée (placeholder)
-                Container(
-                  width: double.infinity,
-                  height: double.infinity,
-                  color: const Color(0xFFE8F0F9),
-                  child: CustomPaint(
-                    painter: _MockMapPainter(),
-                  ),
-                ),
+                // Fond carte stylisé
+                CustomPaint(painter: _MapBgPainter(), size: Size.infinite),
                 // Pins animés
-                const _AnimatedMapPin(left: 0.3, top: 0.25),
-                const _AnimatedMapPin(left: 0.6, top: 0.5),
-                const _AnimatedMapPin(left: 0.2, top: 0.65),
-                // Contrôles carte
+                const _MapPin(leftFrac: 0.25, topFrac: 0.30),
+                const _MapPin(leftFrac: 0.55, topFrac: 0.55),
+                const _MapPin(leftFrac: 0.70, topFrac: 0.25),
+                // Bouton "Ma position"
                 Positioned(
-                  bottom: 12,
-                  right: 12,
-                  child: Column(
-                    children: [
-                      _MapControlButton(icon: Icons.add, onTap: () {}),
-                      const SizedBox(height: 8),
-                      _MapControlButton(icon: Icons.remove, onTap: () {}),
-                    ],
+                  top: 10, right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 6)],
+                    ),
+                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.my_location_rounded, color: AppColors.primary, size: 14),
+                      SizedBox(width: 5),
+                      Text('Ma position', style: TextStyle(fontFamily: 'HankenGrotesk', fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                    ]),
                   ),
                 ),
-                // Bouton Ma position
+                // Label "Vue carte"
                 Positioned(
-                  top: 12,
-                  right: 12,
-                  child: GestureDetector(
-                    onTap: () {},
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.my_location,
-                            color: AppColors.primary,
-                            size: 16,
-                          ),
-                          SizedBox(width: 6),
-                          Text(
-                            'Ma position',
-                            style: TextStyle(
-                              fontFamily: 'HankenGrotesk',
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ],
-                      ),
+                  bottom: 10, left: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(8),
                     ),
+                    child: const Text('Explorer la zone',
+                      style: TextStyle(fontFamily: 'HankenGrotesk', fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white)),
                   ),
                 ),
               ],
@@ -117,160 +82,70 @@ class MapSection extends StatelessWidget {
   }
 }
 
-/// Peintre de carte fictive stylisée
-class _MockMapPainter extends CustomPainter {
+class _MapBgPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final roadPaint = Paint()
-      ..color = Colors.white.withOpacity(0.8)
-      ..strokeWidth = 8
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final gridPaint = Paint()
-      ..color = Colors.white.withOpacity(0.4)
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke;
-
-    // Routes principales
-    canvas.drawLine(
-      Offset(0, size.height * 0.4),
-      Offset(size.width, size.height * 0.4),
-      roadPaint,
-    );
-    canvas.drawLine(
-      Offset(size.width * 0.35, 0),
-      Offset(size.width * 0.35, size.height),
-      roadPaint,
-    );
-    canvas.drawLine(
-      Offset(size.width * 0.7, 0),
-      Offset(size.width * 0.7, size.height),
-      gridPaint,
-    );
-    canvas.drawLine(
-      Offset(0, size.height * 0.7),
-      Offset(size.width, size.height * 0.7),
-      gridPaint,
-    );
-
-    // Bloc vert (parc)
-    final parkPaint = Paint()
-      ..color = const Color(0xFF4CAF50).withOpacity(0.2)
-      ..style = PaintingStyle.fill;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(size.width * 0.5, size.height * 0.05, 80, 60),
-        const Radius.circular(8),
-      ),
-      parkPaint,
-    );
+    final road = Paint()..color = Colors.white.withValues(alpha: 0.75)..strokeWidth = 7..style = PaintingStyle.stroke..strokeCap = StrokeCap.round;
+    final grid = Paint()..color = Colors.white.withValues(alpha: 0.35)..strokeWidth = 3..style = PaintingStyle.stroke;
+    canvas.drawLine(Offset(0, size.height * 0.42), Offset(size.width, size.height * 0.42), road);
+    canvas.drawLine(Offset(size.width * 0.38, 0), Offset(size.width * 0.38, size.height), road);
+    canvas.drawLine(Offset(size.width * 0.68, 0), Offset(size.width * 0.68, size.height), grid);
+    canvas.drawLine(Offset(0, size.height * 0.72), Offset(size.width, size.height * 0.72), grid);
+    final park = Paint()..color = const Color(0xFF4CAF50).withValues(alpha: 0.18)..style = PaintingStyle.fill;
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(size.width * 0.5, size.height * 0.06, 72, 48), const Radius.circular(8)), park);
+    final block = Paint()..color = const Color(0xFF90CAF9).withValues(alpha: 0.2)..style = PaintingStyle.fill;
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(size.width * 0.05, size.height * 0.55, 60, 30), const Radius.circular(4)), block);
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(size.width * 0.72, size.height * 0.5, 50, 28), const Radius.circular(4)), block);
   }
 
   @override
-  bool shouldRepaint(_MockMapPainter oldDelegate) => false;
+  bool shouldRepaint(_MapBgPainter old) => false;
 }
 
-/// Pin animé sur la carte
-class _AnimatedMapPin extends StatefulWidget {
-  final double left;
-  final double top;
-
-  const _AnimatedMapPin({required this.left, required this.top});
+class _MapPin extends StatefulWidget {
+  final double leftFrac;
+  final double topFrac;
+  const _MapPin({required this.leftFrac, required this.topFrac});
 
   @override
-  State<_AnimatedMapPin> createState() => _AnimatedMapPinState();
+  State<_MapPin> createState() => _MapPinState();
 }
 
-class _AnimatedMapPinState extends State<_AnimatedMapPin>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
+class _MapPinState extends State<_MapPin> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
-    _animation = Tween<double>(begin: 0, end: -6).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0, end: -5).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  void dispose() { _ctrl.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
     return Positioned.fill(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return AnimatedBuilder(
-            animation: _animation,
-            builder: (context, child) {
-              return Positioned(
-                left: constraints.maxWidth * widget.left,
-                top: constraints.maxHeight * widget.top + _animation.value,
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withOpacity(0.4),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.location_on,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _MapControlButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _MapControlButton({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+      child: LayoutBuilder(builder: (_, constraints) {
+        return AnimatedBuilder(
+          animation: _anim,
+          builder: (_, __) => Positioned(
+            left: constraints.maxWidth * widget.leftFrac,
+            top: constraints.maxHeight * widget.topFrac + _anim.value,
+            child: Container(
+              width: 28, height: 28,
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+                boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.35), blurRadius: 6, offset: const Offset(0, 3))],
+              ),
+              child: const Icon(Icons.location_on, color: Colors.white, size: 16),
             ),
-          ],
-        ),
-        child: Icon(icon, color: AppColors.primary, size: 20),
-      ),
+          ),
+        );
+      }),
     );
   }
 }

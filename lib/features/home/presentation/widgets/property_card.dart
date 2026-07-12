@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../domain/entities/property_entity.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/price_formatter.dart';
 
 class PropertyCard extends StatelessWidget {
   final PropertyEntity property;
@@ -12,12 +13,8 @@ class PropertyCard extends StatelessWidget {
     this.onTap,
   });
 
-  String _formatPrice(double price, PropertyType type) {
-    final formatted = price >= 1000
-        ? '${(price / 1000).toStringAsFixed(0)} k€'
-        : '${price.toStringAsFixed(0)} €';
-    return type == PropertyType.rent ? '$formatted/mois' : formatted;
-  }
+  String _formatPrice(double price, PropertyType type) =>
+      formatPriceFcfa(price, type);
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +27,7 @@ class PropertyCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF1A56A0).withOpacity(0.08),
+              color: const Color(0xFF1A56A0).withValues(alpha: 0.08),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
@@ -39,9 +36,7 @@ class PropertyCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image / Vidéo avec badges
             _PropertyCardMedia(property: property),
-            // Infos
             Padding(
               padding: const EdgeInsets.all(14),
               child: Column(
@@ -58,7 +53,21 @@ class PropertyCard extends StatelessWidget {
                       height: 1.2,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
+                  // Titre
+                  Text(
+                    property.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'HankenGrotesk',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.onSurface,
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
                   // Description
                   Text(
                     property.description,
@@ -66,7 +75,7 @@ class PropertyCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontFamily: 'HankenGrotesk',
-                      fontSize: 13,
+                      fontSize: 12,
                       color: AppColors.onSurfaceVariant,
                       height: 1.4,
                     ),
@@ -75,19 +84,23 @@ class PropertyCard extends StatelessWidget {
                   // Caractéristiques
                   Row(
                     children: [
-                      _InfoChip(
-                        icon: Icons.bed_outlined,
-                        label: '${property.rooms}',
-                      ),
-                      const SizedBox(width: 12),
-                      _InfoChip(
-                        icon: Icons.straighten_outlined,
-                        label: '${property.surface.toInt()}m²',
-                      ),
-                      const SizedBox(width: 12),
-                      _InfoChip(
-                        icon: Icons.location_on_outlined,
-                        label: property.location,
+                      if (property.rooms != null)
+                        _InfoChip(
+                          icon: Icons.bed_outlined,
+                          label: '${property.rooms}',
+                        ),
+                      if (property.rooms != null) const SizedBox(width: 10),
+                      if (property.surface != null)
+                        _InfoChip(
+                          icon: Icons.straighten_outlined,
+                          label: '${property.surface!.toInt()}m²',
+                        ),
+                      if (property.surface != null) const SizedBox(width: 10),
+                      Flexible(
+                        child: _InfoChip(
+                          icon: Icons.location_on_outlined,
+                          label: _shortLocation(property.location),
+                        ),
                       ),
                     ],
                   ),
@@ -99,6 +112,13 @@ class PropertyCard extends StatelessWidget {
       ),
     );
   }
+
+  String _shortLocation(String location) {
+    // Affiche seulement la ville (avant la première virgule ou les 20 premiers caractères)
+    final parts = location.split(',');
+    final first = parts.first.trim();
+    return first.length > 20 ? '${first.substring(0, 18)}…' : first;
+  }
 }
 
 class _PropertyCardMedia extends StatelessWidget {
@@ -108,6 +128,9 @@ class _PropertyCardMedia extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasVideo = property.videoUrl != null && property.videoUrl!.isNotEmpty;
+    final imageUrl = property.imageUrl;
+
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       child: SizedBox(
@@ -117,52 +140,45 @@ class _PropertyCardMedia extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             // Image de couverture
-            Image.network(
-              property.imageUrl,
-              fit: BoxFit.cover,
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return Container(
-                  color: AppColors.surfaceContainerLow,
-                  child: const Center(
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.primary,
+            if (imageUrl != null && imageUrl.isNotEmpty)
+              Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    color: AppColors.surfaceContainerLow,
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primary,
+                      ),
                     ),
-                  ),
-                );
-              },
-              errorBuilder: (context, error, stackTrace) => Container(
-                color: AppColors.surfaceContainerLow,
-                child: const Icon(
-                  Icons.image_not_supported_outlined,
-                  color: AppColors.outline,
-                  size: 40,
-                ),
-              ),
-            ),
-            // Badge vidéo si disponible
-            if (property.videoUrl != null)
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) =>
+                    _placeholder(),
+              )
+            else
+              _placeholder(),
+
+            // Badge vidéo
+            if (hasVideo)
               Positioned(
                 bottom: 10,
                 right: 10,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
+                      horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.55),
+                    color: Colors.black.withValues(alpha: 0.55),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.play_circle_outline,
-                        color: Colors.white,
-                        size: 14,
-                      ),
+                      Icon(Icons.play_circle_outline,
+                          color: Colors.white, size: 14),
                       SizedBox(width: 4),
                       Text(
                         'Vidéo',
@@ -176,41 +192,7 @@ class _PropertyCardMedia extends StatelessWidget {
                   ),
                 ),
               ),
-            // Badge Vérifié
-            if (property.isVerified)
-              Positioned(
-                top: 10,
-                left: 10,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF006344),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.verified,
-                        color: Color(0xFF6FE1AF),
-                        size: 12,
-                      ),
-                      SizedBox(width: 4),
-                      Text(
-                        'Vérifié ✓',
-                        style: TextStyle(
-                          color: Color(0xFF6FE1AF),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+
             // Bouton favori
             Positioned(
               top: 8,
@@ -219,11 +201,11 @@ class _PropertyCardMedia extends StatelessWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       blurRadius: 6,
                     ),
                   ],
@@ -235,8 +217,41 @@ class _PropertyCardMedia extends StatelessWidget {
                 ),
               ),
             ),
+
+            // Badge catégorie
+            Positioned(
+              bottom: 10,
+              left: 10,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  property.category,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _placeholder() {
+    return Container(
+      color: AppColors.surfaceContainerLow,
+      child: const Icon(
+        Icons.home_outlined,
+        color: AppColors.outline,
+        size: 40,
       ),
     );
   }
@@ -253,7 +268,7 @@ class _InfoChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: AppColors.onSurfaceVariant),
+        Icon(icon, size: 13, color: AppColors.onSurfaceVariant),
         const SizedBox(width: 3),
         Text(
           label,

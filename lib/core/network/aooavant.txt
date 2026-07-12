@@ -31,7 +31,12 @@ class ApiClient {
 
   static final ApiClient instance = ApiClient._();
 
-  static const String _baseUrl = 'http://localhost:8000/api';
+    //
+  static const String _baseUrl = String.fromEnvironment(
+    'API_URL',
+    defaultValue: 'http://localhost:8000/api',
+   
+  );
 
   static const String _tokenKey = 'sanctum_token';
 

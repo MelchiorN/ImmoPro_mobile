@@ -1,0 +1,15 @@
+// ── Configuration ────────────────────────────────────────────────────────
+  // Choix selon le contexte de développement :
+  //
+  // 1. Émulateur AVD (sans câble)
+  //    → defaultValue: 'http://10.0.2.2:8000/api'
+  //
+  // 2. Vrai appareil via USB + ADB reverse
+  //    → Lancer : adb reverse tcp:8000 tcp:8000
+  //    → defaultValue: 'http://localhost:8000/api'
+  //
+  // 3. Vrai appareil via ngrok
+  //   → defaultValue: 'https://devout-terese-unaneled.ngrok-free.dev -> http://localhost:8000 '
+  //
+  // 4. Vrai appareil via WiFi (même réseau)
+  //    → flutter run --dart-define=API_URL=http://192.168.X.X:8000/api
