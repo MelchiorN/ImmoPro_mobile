@@ -47,8 +47,8 @@ class _OtpPageState extends State<OtpPage> {
 
   @override
   void dispose() {
-    for (final c in _digitCtrls) c.dispose();
-    for (final f in _focusNodes) f.dispose();
+    for (final c in _digitCtrls) { c.dispose(); }
+    for (final f in _focusNodes) { f.dispose(); }
     _controller.dispose();
     super.dispose();
   }
@@ -143,7 +143,7 @@ class _OtpPageState extends State<OtpPage> {
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
                       colors: [
-                        AppColors.surfaceContainerLow.withOpacity(0.40),
+                        AppColors.surfaceContainerLow.withValues(alpha: 0.40),
                         Colors.transparent,
                       ],
                     ),
@@ -169,7 +169,10 @@ class _OtpAppBar extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () {
+              FocusScope.of(context).unfocus();
+              Navigator.of(context).pop();
+            },
             icon: const Icon(
               Icons.arrow_back_rounded,
               color: AppColors.primary,
@@ -361,7 +364,7 @@ class _VerifyButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primaryContainer,
           foregroundColor: Colors.white,
-          disabledBackgroundColor: AppColors.primaryContainer.withOpacity(0.6),
+          disabledBackgroundColor: AppColors.primaryContainer.withValues(alpha: 0.6),
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

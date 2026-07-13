@@ -83,6 +83,7 @@ class _RegisterPageState extends State<RegisterPage> {
         confirmPassword: _confirmCtrl.text,
       )
           .then((_) {
+        if (!mounted) return;
         if (_controller.status == RegisterStatus.success) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
@@ -155,8 +156,8 @@ class _HeroSection extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  const Color(0xFF1A56A0).withOpacity(0.40),
-                  const Color(0xFF1A56A0).withOpacity(0.75),
+                  const Color(0xFF1A56A0).withValues(alpha: 0.40),
+                  const Color(0xFF1A56A0).withValues(alpha: 0.75),
                 ],
               ),
             ),
@@ -539,7 +540,7 @@ class _FormContent extends StatelessWidget {
               backgroundColor: AppColors.primaryContainer,
               foregroundColor: Colors.white,
               disabledBackgroundColor:
-                  AppColors.primaryContainer.withOpacity(0.6),
+                  AppColors.primaryContainer.withValues(alpha: 0.6),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),

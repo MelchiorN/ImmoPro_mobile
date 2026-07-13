@@ -133,7 +133,10 @@ class _ProfilePageState extends State<ProfilePage> {
               automaticallyImplyLeading: false,
               leading: Navigator.of(context).canPop()
                   ? IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: () {
+                        FocusScope.of(context).unfocus();
+                        Navigator.of(context).pop();
+                      },
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
                       tooltip: 'Retour',
                     )
@@ -201,7 +204,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                       boxShadow: [
                                         BoxShadow(
                                           color:
-                                              Colors.black.withOpacity(0.18),
+                                              Colors.black.withValues(alpha: 0.18),
                                           blurRadius: 14,
                                           offset: const Offset(0, 4),
                                         ),
@@ -281,7 +284,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.06),
+                                color: Colors.black.withValues(alpha: 0.06),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4),
                               ),
@@ -411,7 +414,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           style: TextStyle(
                             fontFamily: 'HankenGrotesk',
                             fontSize: 11,
-                            color: AppColors.onSurfaceVariant.withOpacity(0.6),
+                            color: AppColors.onSurfaceVariant.withValues(alpha: 0.6),
                           ),
                         ),
                         const SizedBox(height: 32),
@@ -514,7 +517,7 @@ class _Divider extends StatelessWidget {
     return Container(
       width: 1,
       height: 34,
-      color: AppColors.outlineVariant.withOpacity(0.5),
+      color: AppColors.outlineVariant.withValues(alpha: 0.5),
     );
   }
 }
@@ -529,10 +532,10 @@ class _InfoCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.3)),
+        border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -666,7 +669,7 @@ class _MenuTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-                color: AppColors.outlineVariant.withOpacity(0.3)),
+                color: AppColors.outlineVariant.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
@@ -674,7 +677,7 @@ class _MenuTile extends StatelessWidget {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, color: color, size: 22),

@@ -71,13 +71,7 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
     }
   }
 
-  String _actionLabel() {
-    switch (_property.type) {
-      case PropertyType.sale: return 'Acheter';
-      case PropertyType.rent: return 'Louer';
-      case PropertyType.colocation: return 'Louer';
-    }
-  }
+  // Plus utilisé — tous les types ont désormais Réserver + Louer
 
   @override
   Widget build(BuildContext context) {
@@ -165,7 +159,10 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
                   height: 320,
                   child: m.type == 'video'
                       ? _VideoItem(url: m.url, autoPlay: i == _currentIndex)
-                      : _ImageItem(url: m.url),
+                      : GestureDetector(
+                          onTap: () => _openImageViewer(media, i),
+                          child: _ImageItem(url: m.url),
+                        ),
                 );
               },
             ),
@@ -187,15 +184,33 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
           // Bouton favori
           Positioned(top: 12, right: 12,
             child: _CircleBtn(icon: Icons.favorite_border, onTap: () {})),
-          // Compteur
+          // Compteur + icône agrandissement
           if (media.isNotEmpty)
             Positioned(
               bottom: 42, right: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(20)),
-                child: Text('${_currentIndex + 1}/${media.length}',
-                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (media[_currentIndex].type == 'image')
+                    GestureDetector(
+                      onTap: () => _openImageViewer(media, _currentIndex),
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 6),
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Icon(Icons.fullscreen_rounded, color: Colors.white, size: 16),
+                      ),
+                    ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(20)),
+                    child: Text('${_currentIndex + 1}/${media.length}',
+                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                  ),
+                ],
               ),
             ),
           // Spinner chargement
@@ -211,6 +226,24 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  /// Ouvre la visionneuse plein écran sur l'image [startIndex]
+  void _openImageViewer(List<PropertyMedia> media, int startIndex) {
+    // Filtre seulement les images (pas les vidéos)
+    final images = media.where((m) => m.type == 'image').toList();
+    if (images.isEmpty) return;
+    // Recalcule l'index parmi les images seulement
+    final imageIndex = images.indexWhere((m) => m.id == media[startIndex].id);
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => _ImageViewerPage(
+          images: images,
+          initialIndex: imageIndex >= 0 ? imageIndex : 0,
+        ),
       ),
     );
   }
@@ -403,8 +436,6 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
 
   // ── Barre d'action en bas ─────────────────────────────────────────────────
   Widget _buildBottomBar(BuildContext context, double bottomPad) {
-    final isSale = _property.type == PropertyType.sale;
-
     void showSnack(String action) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -415,6 +446,7 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
       );
     }
 
+    // Tous les types ont les boutons Réserver + Louer
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPad),
       decoration: BoxDecoration(
@@ -422,58 +454,41 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
         border: Border(top: BorderSide(color: AppColors.outlineVariant.withValues(alpha: 0.4))),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 16, offset: const Offset(0, -4))],
       ),
-      child: isSale
-          // ── Vente : un seul bouton Acheter ─────────────────────────────
-          ? SizedBox(
-              width: double.infinity,
+      child: Row(
+        children: [
+          Expanded(
+            child: SizedBox(
+              height: 52,
+              child: OutlinedButton(
+                onPressed: () => showSnack('Réserver'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.primary, width: 1.5),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: const Text('Réserver',
+                    style: TextStyle(fontFamily: 'Manrope', fontSize: 15, fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SizedBox(
               height: 52,
               child: ElevatedButton(
-                onPressed: () => showSnack('Acheter'),
+                onPressed: () => showSnack('Louer'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
-                child: const Text('Acheter',
-                    style: TextStyle(fontFamily: 'Manrope', fontSize: 17, fontWeight: FontWeight.w700)),
+                child: const Text('Louer',
+                    style: TextStyle(fontFamily: 'Manrope', fontSize: 15, fontWeight: FontWeight.w700)),
               ),
-            )
-          // ── Location / Colocation : Louer + Réserver ───────────────────
-          : Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 52,
-                    child: OutlinedButton(
-                      onPressed: () => showSnack('Réserver'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        side: const BorderSide(color: AppColors.primary, width: 1.5),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      child: const Text('Réserver',
-                          style: TextStyle(fontFamily: 'Manrope', fontSize: 15, fontWeight: FontWeight.w700)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: SizedBox(
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: () => showSnack('Louer'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      child: const Text('Louer',
-                          style: TextStyle(fontFamily: 'Manrope', fontSize: 15, fontWeight: FontWeight.w700)),
-                    ),
-                  ),
-                ),
-              ],
             ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -632,6 +647,208 @@ class _SimilarCard extends StatelessWidget {
           ]),
         ),
       ]),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Visionneuse plein écran avec défilement entre les images
+// ─────────────────────────────────────────────────────────────────────────────
+class _ImageViewerPage extends StatefulWidget {
+  final List<PropertyMedia> images;
+  final int initialIndex;
+
+  const _ImageViewerPage({required this.images, required this.initialIndex});
+
+  @override
+  State<_ImageViewerPage> createState() => _ImageViewerPageState();
+}
+
+class _ImageViewerPageState extends State<_ImageViewerPage> {
+  late final PageController _pageController;
+  late int _current;
+
+  @override
+  void initState() {
+    super.initState();
+    _current = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          children: [
+            // PageView avec zoom par InteractiveViewer
+            PageView.builder(
+              controller: _pageController,
+              itemCount: widget.images.length,
+              onPageChanged: (i) => setState(() => _current = i),
+              itemBuilder: (ctx, i) {
+                final img = widget.images[i];
+                return InteractiveViewer(
+                  minScale: 0.8,
+                  maxScale: 4.0,
+                  child: Center(
+                    child: Image.network(
+                      img.url,
+                      fit: BoxFit.contain,
+                      loadingBuilder: (_, child, p) => p == null
+                          ? child
+                          : const Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            ),
+                      errorBuilder: (_, __, ___) => const Center(
+                        child: Icon(Icons.broken_image_outlined,
+                            color: Colors.white54, size: 64),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+
+            // Dégradé haut pour les boutons
+            Positioned(
+              top: 0, left: 0, right: 0, height: 100,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.black.withValues(alpha: 0.6), Colors.transparent],
+                  ),
+                ),
+              ),
+            ),
+
+            // Bouton fermer
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Container(
+                        width: 40, height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
+                      ),
+                    ),
+                    // Compteur
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${_current + 1} / ${widget.images.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'HankenGrotesk',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Flèche gauche
+            if (_current > 0)
+              Positioned(
+                left: 8,
+                top: 0, bottom: 0,
+                child: Center(
+                  child: GestureDetector(
+                    onTap: () => _pageController.previousPage(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    ),
+                    child: Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.chevron_left_rounded, color: Colors.white, size: 24),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Flèche droite
+            if (_current < widget.images.length - 1)
+              Positioned(
+                right: 8,
+                top: 0, bottom: 0,
+                child: Center(
+                  child: GestureDetector(
+                    onTap: () => _pageController.nextPage(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    ),
+                    child: Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 24),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Indicateurs de points en bas
+            if (widget.images.length > 1)
+              Positioned(
+                bottom: 32, left: 0, right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(widget.images.length, (i) {
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: i == _current ? 20 : 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: i == _current
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

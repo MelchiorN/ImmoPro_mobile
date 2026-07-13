@@ -3,6 +3,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../../profile/presentation/pages/profile_page.dart';
+import '../../../my_listings/presentation/pages/my_listings_page.dart';
 
 class HomeBottomNavBar extends StatelessWidget {
   final int currentIndex;
@@ -16,11 +17,9 @@ class HomeBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Padding bas pour la barre de navigation système (gestures Android / home indicator iOS)
     final bottomPad = MediaQuery.of(context).padding.bottom;
 
     return Container(
-      // Hauteur dynamique : nav + espace système (pas de hauteur fixe pour éviter l'overflow)
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -57,11 +56,18 @@ class HomeBottomNavBar extends StatelessWidget {
             ),
             // Bouton central "Publier"
             const _PublishButton(),
+            // Bouton "Mes annonces"
             _NavItem(
-              icon: Icons.favorite_border_rounded,
-              label: 'Favoris',
+              icon: Icons.list_alt_rounded,
+              label: 'Annonces',
               isActive: currentIndex == 3,
-              onTap: () => onTap?.call(3),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const MyListingsPage(),
+                  ),
+                );
+              },
             ),
             _buildProfileNavItem(context),
           ],

@@ -93,6 +93,24 @@ class ApiClient {
     );
   }
 
+  void _logRequest(String method, String url, Map<String, String> headers, [String? body]) {
+    debugPrint('── API REQUEST [$method] ──────────────────────────');
+    debugPrint('URL     : $url');
+    debugPrint('Headers : $headers');
+    if (body != null && body.isNotEmpty && body != '{}') {
+      debugPrint('Body    : $body');
+    }
+    debugPrint('──────────────────────────────────────────────────');
+  }
+
+  void _logResponse(String method, String url, int statusCode, String responseBody) {
+    debugPrint('── API RESPONSE [$method] ─────────────────────────');
+    debugPrint('URL     : $url');
+    debugPrint('Status  : $statusCode');
+    debugPrint('Body    : $responseBody');
+    debugPrint('──────────────────────────────────────────────────');
+  }
+
   // ── Public API ────────────────────────────────────────────────────────────
 
   /// Requête POST (sans authentification).
@@ -104,10 +122,7 @@ class ApiClient {
     final headers = await _buildHeaders();
     final encodedBody = json.encode(data);
 
-    debugPrint('── API POST ──────────────────────────');
-    debugPrint('URL     : $url');
-    debugPrint('Headers : $headers');
-    debugPrint('Body    : $encodedBody');
+    _logRequest('POST', url, headers, encodedBody);
 
     final response = await _client.post(
       Uri.parse(url),
@@ -115,31 +130,45 @@ class ApiClient {
       body: encodedBody,
     );
 
-    debugPrint('Status  : ${response.statusCode}');
-    debugPrint('Response: ${response.body}');
-    debugPrint('──────────────────────────────────────');
+    _logResponse('POST', url, response.statusCode, response.body);
 
     return _parseResponse(response);
   }
 
   /// Requête GET publique (sans authentification).
   Future<Map<String, dynamic>> getPublic(String path) async {
+    final url = '$_baseUrl$path';
+    final headers = {
+      'Accept': 'application/json',
+      'X-Platform': defaultTargetPlatform.name,
+    };
+
+    _logRequest('GET', url, headers);
+
     final response = await _client.get(
-      Uri.parse('$_baseUrl$path'),
-      headers: {
-        'Accept': 'application/json',
-        'X-Platform': defaultTargetPlatform.name,
-      },
+      Uri.parse(url),
+      headers: headers,
     );
+
+    _logResponse('GET', url, response.statusCode, response.body);
+
     return _parseResponse(response);
   }
 
   /// Requête GET (avec authentification Sanctum).
   Future<Map<String, dynamic>> getAuth(String path) async {
+    final url = '$_baseUrl$path';
+    final headers = await _buildHeaders(auth: true);
+
+    _logRequest('GET AUTH', url, headers);
+
     final response = await _client.get(
-      Uri.parse('$_baseUrl$path'),
-      headers: await _buildHeaders(auth: true),
+      Uri.parse(url),
+      headers: headers,
     );
+
+    _logResponse('GET AUTH', url, response.statusCode, response.body);
+
     return _parseResponse(response);
   }
 
@@ -148,11 +177,20 @@ class ApiClient {
     String path, [
     Map<String, dynamic>? data,
   ]) async {
+    final url = '$_baseUrl$path';
+    final headers = await _buildHeaders(auth: true);
+    final encodedBody = json.encode(data ?? {});
+
+    _logRequest('POST AUTH', url, headers, encodedBody);
+
     final response = await _client.post(
-      Uri.parse('$_baseUrl$path'),
-      headers: await _buildHeaders(auth: true),
-      body: json.encode(data ?? {}),
+      Uri.parse(url),
+      headers: headers,
+      body: encodedBody,
     );
+
+    _logResponse('POST AUTH', url, response.statusCode, response.body);
+
     return _parseResponse(response);
   }
 
@@ -161,20 +199,37 @@ class ApiClient {
     String path,
     Map<String, dynamic> data,
   ) async {
+    final url = '$_baseUrl$path';
+    final headers = await _buildHeaders(auth: true);
+    final encodedBody = json.encode(data);
+
+    _logRequest('PUT AUTH', url, headers, encodedBody);
+
     final response = await _client.put(
-      Uri.parse('$_baseUrl$path'),
-      headers: await _buildHeaders(auth: true),
-      body: json.encode(data),
+      Uri.parse(url),
+      headers: headers,
+      body: encodedBody,
     );
+
+    _logResponse('PUT AUTH', url, response.statusCode, response.body);
+
     return _parseResponse(response);
   }
 
   /// Requête DELETE (avec authentification Sanctum).
   Future<Map<String, dynamic>> deleteAuth(String path) async {
+    final url = '$_baseUrl$path';
+    final headers = await _buildHeaders(auth: true);
+
+    _logRequest('DELETE AUTH', url, headers);
+
     final response = await _client.delete(
-      Uri.parse('$_baseUrl$path'),
-      headers: await _buildHeaders(auth: true),
+      Uri.parse(url),
+      headers: headers,
     );
+
+    _logResponse('DELETE AUTH', url, response.statusCode, response.body);
+
     return _parseResponse(response);
   }
 

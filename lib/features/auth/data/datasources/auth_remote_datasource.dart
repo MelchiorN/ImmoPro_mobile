@@ -70,11 +70,11 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String password,
     required String confirmPassword,
   }) async {
-    final body = await _client.post('/register', {
+    await _client.post('/register', {
       'first_name': firstName,
       'last_name': lastName,
       'email': email,
-      'telephone': phone, // concaténer countryCode + phone si besoin côté backend
+      'telephone': phone,
       'country': country,
       'city': city,
       'password': password,

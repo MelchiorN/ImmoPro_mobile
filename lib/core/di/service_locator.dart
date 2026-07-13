@@ -17,6 +17,10 @@ import '../../features/profile/domain/usecases/update_profile_usecase.dart';
 import '../../features/profile/domain/usecases/change_password_usecase.dart';
 import '../../features/profile/domain/usecases/toggle_2fa_usecase.dart';
 import '../../features/profile/domain/usecases/update_photo_usecase.dart';
+import '../../features/my_listings/data/datasources/my_listings_remote_datasource.dart';
+import '../../features/my_listings/data/repositories/my_listings_repository_impl.dart';
+import '../../features/my_listings/domain/usecases/get_my_listings_usecase.dart';
+import '../../features/my_listings/presentation/controllers/my_listings_controller.dart';
 
 /// Service Locator simple pour l'injection de dépendances.
 ///
@@ -86,4 +90,18 @@ class ServiceLocator {
 
   late final UpdatePhotoUseCase updatePhotoUseCase =
       UpdatePhotoUseCase(profileRepository);
+
+  // ── My Listings ───────────────────────────────────────────────────────────
+  late final MyListingsRemoteDataSource myListingsRemoteDataSource =
+      MyListingsRemoteDataSourceImpl(apiClient);
+
+  late final MyListingsRepositoryImpl myListingsRepository =
+      MyListingsRepositoryImpl(myListingsRemoteDataSource);
+
+  late final GetMyListingsUseCase getMyListingsUseCase =
+      GetMyListingsUseCase(myListingsRepository);
+
+  /// Singleton partagé — une seule instance pour tout le cycle de vie de l'app.
+  late final MyListingsController myListingsController =
+      MyListingsController(getMyListingsUseCase);
 }

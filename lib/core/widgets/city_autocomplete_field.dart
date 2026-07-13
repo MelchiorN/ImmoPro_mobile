@@ -68,7 +68,7 @@ class _CityAutocompleteFieldState extends State<CityAutocompleteField> {
       hintStyle: TextStyle(
         color: _isEnabled
             ? AppColors.outlineVariant
-            : AppColors.outline.withOpacity(0.5),
+            : AppColors.outline.withValues(alpha: 0.5),
         fontFamily: 'HankenGrotesk',
         fontSize: 16,
       ),
@@ -87,7 +87,7 @@ class _CityAutocompleteFieldState extends State<CityAutocompleteField> {
       filled: true,
       fillColor: _isEnabled
           ? AppColors.surfaceContainerLow
-          : AppColors.surfaceContainerLow.withOpacity(0.5),
+          : AppColors.surfaceContainerLow.withValues(alpha: 0.5),
       contentPadding:
           const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
@@ -103,7 +103,7 @@ class _CityAutocompleteFieldState extends State<CityAutocompleteField> {
       disabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
-            color: AppColors.outlineVariant.withOpacity(0.4), width: 1),
+            color: AppColors.outlineVariant.withValues(alpha: 0.4), width: 1),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),

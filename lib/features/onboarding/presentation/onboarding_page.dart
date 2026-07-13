@@ -333,7 +333,7 @@ class _VectorIllustration extends StatelessWidget {
             width: 180,
             height: 180,
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.15),
+              color: iconColor.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
           ),

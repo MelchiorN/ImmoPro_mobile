@@ -104,7 +104,7 @@ class _HeroSection extends StatelessWidget {
 
           // Overlay bleu opaque (simule mix-blend-multiply à 60%)
           Container(
-            color: const Color(0xFF1A56A0).withOpacity(0.60),
+            color: const Color(0xFF1A56A0).withValues(alpha: 0.60),
           ),
 
           // Dégradé vertical du haut vers le bas
@@ -115,8 +115,8 @@ class _HeroSection extends StatelessWidget {
                 end: Alignment.bottomCenter,
                 colors: [
                   Colors.transparent,
-                  const Color(0xFF1A56A0).withOpacity(0.20),
-                  const Color(0xFF1A56A0).withOpacity(0.80),
+                  const Color(0xFF1A56A0).withValues(alpha: 0.20),
+                  const Color(0xFF1A56A0).withValues(alpha: 0.80),
                 ],
                 stops: const [0.0, 0.5, 1.0],
               ),
@@ -132,15 +132,15 @@ class _HeroSection extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.20),
+                    color: Colors.white.withValues(alpha: 0.20),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.30),
+                      color: Colors.white.withValues(alpha: 0.30),
                       width: 1,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
+                        color: Colors.black.withValues(alpha: 0.15),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -177,7 +177,7 @@ class _HeroSection extends StatelessWidget {
                     fontFamily: 'HankenGrotesk',
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white.withOpacity(0.90),
+                    color: Colors.white.withValues(alpha: 0.90),
                     letterSpacing: 0.7,
                   ),
                 ),
@@ -418,7 +418,7 @@ class _FormContent extends StatelessWidget {
               backgroundColor: AppColors.primaryContainer,
               foregroundColor: Colors.white,
               disabledBackgroundColor:
-                  AppColors.primaryContainer.withOpacity(0.6),
+                  AppColors.primaryContainer.withValues(alpha: 0.6),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),

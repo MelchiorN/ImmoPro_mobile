@@ -86,10 +86,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
       }
       if (mounted) setState(() {});
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: const Text('Impossible de mettre à jour la photo.'),
-          backgroundColor: AppColors.error, behavior: SnackBarBehavior.floating),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: const Text('Impossible de mettre à jour la photo.'),
+            backgroundColor: AppColors.error, behavior: SnackBarBehavior.floating),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isUploadingPhoto = false);
     }
@@ -137,7 +139,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
         elevation: 0,
         automaticallyImplyLeading: false,
         leading: IconButton(
-          onPressed: _isUploadingPhoto ? null : () => Navigator.of(context).pop(),
+          onPressed: _isUploadingPhoto ? null : () {
+            FocusScope.of(context).unfocus();
+            Navigator.of(context).pop();
+          },
           icon: Icon(Icons.arrow_back,
             color: _isUploadingPhoto ? Colors.white.withValues(alpha: 0.4) : Colors.white),
           tooltip: 'Retour',

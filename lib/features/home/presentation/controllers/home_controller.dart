@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../domain/entities/property_entity.dart';
 import '../../../../core/di/service_locator.dart';
@@ -13,6 +14,11 @@ class HomeController extends ChangeNotifier {
   final GetPropertiesByCategoryUseCase getPropertiesByCategoryUseCase;
   final SearchPropertiesUseCase searchPropertiesUseCase;
   final GetCategoriesUseCase getCategoriesUseCase;
+
+  /// Intervalle de rafraîchissement automatique (30 secondes)
+  static const _refreshInterval = Duration(seconds: 30);
+
+  Timer? _refreshTimer;
 
   HomeController({
     required this.getRecentPropertiesUseCase,
@@ -49,6 +55,27 @@ class HomeController extends ChangeNotifier {
   double? get filterPrixMax => _filterPrixMax;
   double? get filterSurfaceMin => _filterSurfaceMin;
 
+  /// Démarre le timer de rafraîchissement automatique.
+  /// Appelé après le premier chargement réussi.
+  void _startAutoRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(_refreshInterval, (_) => _silentRefresh());
+  }
+
+  /// Rafraîchissement silencieux (sans spinner) — ne change pas le statut
+  /// si des données sont déjà affichées.
+  Future<void> _silentRefresh() async {
+    if (_hasActiveFilters) return; // Ne pas écraser un filtre actif
+    try {
+      final fresh = await getRecentPropertiesUseCase();
+      _properties = fresh;
+      // Met à jour l'état uniquement si chargé (évite d'écraser un état d'erreur)
+      if (_status == HomeStatus.loaded) notifyListeners();
+    } catch (_) {
+      // Échec silencieux — les données existantes restent affichées
+    }
+  }
+
   /// Initialise la page d'accueil (catégories + biens)
   Future<void> init() async {
     _status = HomeStatus.loading;
@@ -60,6 +87,7 @@ class HomeController extends ChangeNotifier {
       _selectedCategory = 'Tous';
       _properties = await getRecentPropertiesUseCase();
       _status = HomeStatus.loaded;
+      _startAutoRefresh(); // Lance le rafraîchissement auto après succès
     } catch (e) {
       _status = HomeStatus.error;
       _errorMessage = 'Impossible de charger les données. Vérifiez votre connexion.';
@@ -153,5 +181,11 @@ class HomeController extends ChangeNotifier {
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 }

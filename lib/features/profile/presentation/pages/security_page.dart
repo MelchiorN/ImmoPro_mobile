@@ -114,7 +114,10 @@ class _SecurityPageState extends State<SecurityPage> {
         backgroundColor: AppColors.primaryContainer,
         elevation: 0,
         leading: IconButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            FocusScope.of(context).unfocus();
+            Navigator.of(context).pop();
+          },
           icon: const Icon(Icons.arrow_back, color: Colors.white),
         ),
         title: const Text(
@@ -283,7 +286,7 @@ class _SecurityPageState extends State<SecurityPage> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.outlineVariant.withOpacity(0.3)),
+                    border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -311,7 +314,7 @@ class _SecurityPageState extends State<SecurityPage> {
                             onChanged: (val) {
                               _controller.toggle2FA(val);
                             },
-                            activeColor: AppColors.primary,
+                            activeThumbColor: AppColors.primary,
                           ),
                         ],
                       ),
@@ -336,7 +339,7 @@ class _SecurityPageState extends State<SecurityPage> {
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: AppColors.outlineVariant.withOpacity(0.3)),
+                                  border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
                                 ),
                                 child: Image.network(
                                   'https://lh3.googleusercontent.com/aida-public/AB6AXuD_vuMLtRUG3-AuKtSZXzrRi2QuU6sTpOJZT-l1ehrENgb2WOxtkxR5f4240a6qK6ccFsBep4lQliZQf7Lt-F15asSCzALEYss7ElObMZxVIIzjJAfQcHzM-LPxBaldiwk29d5HSWh6zt059hRSSzDZHLqg_xjJPNzyGErGII7RcGHSSmJwW12KkdMXgFHAy3CMxBlc8NBb7SWzuntKm4hxLRr44J7hIvapkr9eciVlL-mzrRJuLeGmuHyiuihmz0yqDVPh7hMs_u8',
@@ -456,7 +459,7 @@ class _SecurityPageState extends State<SecurityPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.3)),
+        border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

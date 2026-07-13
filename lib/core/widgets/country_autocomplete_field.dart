@@ -34,7 +34,6 @@ class _CountryAutocompleteFieldState extends State<CountryAutocompleteField> {
   final _controller = TextEditingController();
   final _focusNode  = FocusNode();
   CountryModel? _selected;
-  String? _errorText;
 
   @override
   void initState() {
@@ -65,8 +64,7 @@ class _CountryAutocompleteFieldState extends State<CountryAutocompleteField> {
   void _onSelected(CountryModel country) {
     _controller.text = country.name;
     setState(() {
-      _selected    = country;
-      _errorText   = null;
+      _selected = country;
     });
     widget.onCountrySelected(country);
     _focusNode.unfocus();
@@ -139,7 +137,6 @@ class _CountryAutocompleteFieldState extends State<CountryAutocompleteField> {
                               controller.clear();
                               setState(() {
                                 _selected  = null;
-                                _errorText = null;
                               });
                               widget.onCountrySelected(null);
                             },

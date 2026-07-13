@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../domain/entities/property_draft_entity.dart';
 import '../controllers/publish_controller.dart';
 import '../widgets/publish_app_bar.dart';
 import '../widgets/publish_bottom_bar.dart';
@@ -67,7 +68,7 @@ class Step4SummaryPage extends StatelessWidget {
           listenable: controller,
           builder: (context, _) {
             final draft = controller.draft;
-            final isLoading = controller.status == PublishStatus.loading;
+            // isLoading géré directement dans PublishBottomBar via controller.status
 
             return SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
@@ -462,7 +463,7 @@ class _SummarySection extends StatelessWidget {
 }
 
 class _InfoGrid extends StatelessWidget {
-  final draft;
+  final PropertyDraftEntity draft;
   const _InfoGrid({required this.draft});
 
   @override

@@ -29,7 +29,10 @@ class PublishAppBar extends StatelessWidget implements PreferredSizeWidget {
       shadowColor: Colors.black26,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_rounded),
-        onPressed: onBack ?? () => Navigator.of(context).maybePop(),
+        onPressed: onBack ?? () {
+          FocusScope.of(context).unfocus();
+          Navigator.of(context).maybePop();
+        },
       ),
       titleSpacing: 0,
       title: Column(
