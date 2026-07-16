@@ -32,7 +32,7 @@ class CountryAutocompleteField extends StatefulWidget {
 
 class _CountryAutocompleteFieldState extends State<CountryAutocompleteField> {
   final _controller = TextEditingController();
-  final _focusNode  = FocusNode();
+  final _focusNode = FocusNode();
   CountryModel? _selected;
 
   @override
@@ -41,9 +41,7 @@ class _CountryAutocompleteFieldState extends State<CountryAutocompleteField> {
     if (widget.initialValue != null && widget.initialValue!.isNotEmpty) {
       _controller.text = widget.initialValue!;
       // Pré-charger le modèle correspondant en protégeant le setState
-      CountryService.instance
-          .findByName(widget.initialValue!)
-          .then((model) {
+      CountryService.instance.findByName(widget.initialValue!).then((model) {
         // Double vérification mounted pour éviter le crash après dispose
         if (!mounted) return;
         if (model != null) {
@@ -52,6 +50,8 @@ class _CountryAutocompleteFieldState extends State<CountryAutocompleteField> {
         }
       });
     }
+    // Pré-charger la liste des pays en tâche de fond pour peupler le cache
+    CountryService.instance.fetchCountries();
   }
 
   @override
@@ -85,11 +85,17 @@ class _CountryAutocompleteFieldState extends State<CountryAutocompleteField> {
     return RawAutocomplete<CountryModel>(
       textEditingController: _controller,
       focusNode: _focusNode,
-      optionsBuilder: (textEditingValue) async {
+      // RawAutocomplete requires a synchronous optionsBuilder. We use
+      // CountryService.searchSync which consults the in-memory cache.
+      optionsBuilder: (textEditingValue) {
         final query = textEditingValue.text.trim();
-        if (query.isEmpty) return const [];
-        // Dès 1 caractère
-        return CountryService.instance.search(query);
+        // Si le cache n'est pas encore prêt, déclencher le fetch en
+        // arrière-plan et retourner une liste vide (aucune suggestion).
+        if (CountryService.instance.cache == null) {
+          CountryService.instance.fetchCountries();
+          return const Iterable<CountryModel>.empty();
+        }
+        return CountryService.instance.searchSync(query);
       },
       displayStringForOption: (c) => c.name,
       onSelected: _onSelected,
@@ -119,24 +125,29 @@ class _CountryAutocompleteFieldState extends State<CountryAutocompleteField> {
                     ),
                     prefixIcon: _selected != null
                         ? Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
                             child: Text(
                               _selected!.flagEmoji,
                               style: const TextStyle(fontSize: 20),
                             ),
                           )
-                        : const Icon(Icons.flag_outlined,
-                            color: AppColors.outline, size: 22),
+                        : const Icon(
+                            Icons.flag_outlined,
+                            color: AppColors.outline,
+                            size: 22,
+                          ),
                     prefixIconConstraints: const BoxConstraints(minWidth: 48),
                     suffixIcon: controller.text.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.clear,
-                                color: AppColors.outline, size: 18),
+                            icon: const Icon(
+                              Icons.clear,
+                              color: AppColors.outline,
+                              size: 18,
+                            ),
                             onPressed: () {
                               controller.clear();
                               setState(() {
-                                _selected  = null;
+                                _selected = null;
                               });
                               widget.onCountrySelected(null);
                             },
@@ -146,31 +157,43 @@ class _CountryAutocompleteFieldState extends State<CountryAutocompleteField> {
                     filled: true,
                     fillColor: AppColors.surfaceContainerLow,
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 16),
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                          color: AppColors.outlineVariant, width: 1),
+                        color: AppColors.outlineVariant,
+                        width: 1,
+                      ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                          color: AppColors.outlineVariant, width: 1),
+                        color: AppColors.outlineVariant,
+                        width: 1,
+                      ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                          color: AppColors.primary, width: 1.5),
+                        color: AppColors.primary,
+                        width: 1.5,
+                      ),
                     ),
                     errorBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                          color: AppColors.error, width: 1),
+                        color: AppColors.error,
+                        width: 1,
+                      ),
                     ),
                     focusedErrorBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                          color: AppColors.error, width: 1.5),
+                        color: AppColors.error,
+                        width: 1.5,
+                      ),
                     ),
                   ),
                   onChanged: (_) {
@@ -207,19 +230,23 @@ class _CountryAutocompleteFieldState extends State<CountryAutocompleteField> {
                   return InkWell(
                     onTap: () => onSelected(country),
                     borderRadius: i == 0
-                        ? const BorderRadius.vertical(
-                            top: Radius.circular(12))
+                        ? const BorderRadius.vertical(top: Radius.circular(12))
                         : i == options.length - 1
-                            ? const BorderRadius.vertical(
-                                bottom: Radius.circular(12))
-                            : BorderRadius.zero,
+                        ? const BorderRadius.vertical(
+                            bottom: Radius.circular(12),
+                          )
+                        : BorderRadius.zero,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       child: Row(
                         children: [
-                          Text(country.flagEmoji,
-                              style: const TextStyle(fontSize: 22)),
+                          Text(
+                            country.flagEmoji,
+                            style: const TextStyle(fontSize: 22),
+                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(

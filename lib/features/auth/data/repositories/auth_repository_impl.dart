@@ -45,12 +45,23 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<UserEntity> verifyOtp({
     required String email,
     required String otp,
+    String? pendingToken,
   }) {
-    return remoteDataSource.verifyOtp(email: email, otp: otp);
+    return remoteDataSource.verifyOtp(
+      email: email,
+      otp: otp,
+      pendingToken: pendingToken,
+    );
   }
 
   @override
-  Future<void> resendOtp({required String email}) {
-    return remoteDataSource.resendOtp(email: email);
+  Future<void> resendOtp({
+    required String email,
+    String? pendingToken,
+  }) {
+    return remoteDataSource.resendOtp(
+      email: email,
+      pendingToken: pendingToken,
+    );
   }
 }

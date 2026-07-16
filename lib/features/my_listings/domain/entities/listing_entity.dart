@@ -1,3 +1,5 @@
+import '../../../home/domain/entities/property_entity.dart';
+
 /// Entité domaine pour une annonce appartenant à l'utilisateur connecté.
 class ListingEntity {
   final String id;
@@ -15,6 +17,7 @@ class ListingEntity {
   final String? publishedAt;
   final String? createdAt;
   final String? rejectionReason;
+  final List<PropertyMedia> medias;
 
   const ListingEntity({
     required this.id,
@@ -32,5 +35,6 @@ class ListingEntity {
     this.publishedAt,
     this.createdAt,
     this.rejectionReason,
+    this.medias = const [],
   });
 }

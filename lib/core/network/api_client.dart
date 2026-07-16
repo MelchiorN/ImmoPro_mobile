@@ -216,6 +216,28 @@ class ApiClient {
     return _parseResponse(response);
   }
 
+  /// Requête PATCH (avec authentification Sanctum).
+  Future<Map<String, dynamic>> patchAuth(
+    String path, [
+    Map<String, dynamic>? data,
+  ]) async {
+    final url = '$_baseUrl$path';
+    final headers = await _buildHeaders(auth: true);
+    final encodedBody = json.encode(data ?? {});
+
+    _logRequest('PATCH AUTH', url, headers, encodedBody);
+
+    final response = await _client.patch(
+      Uri.parse(url),
+      headers: headers,
+      body: encodedBody,
+    );
+
+    _logResponse('PATCH AUTH', url, response.statusCode, response.body);
+
+    return _parseResponse(response);
+  }
+
   /// Requête DELETE (avec authentification Sanctum).
   Future<Map<String, dynamic>> deleteAuth(String path) async {
     final url = '$_baseUrl$path';

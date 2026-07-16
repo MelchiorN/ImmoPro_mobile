@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../notifications/presentation/controllers/notifications_controller.dart';
 
 /// AppBar de l'accueil — utilisée comme `appBar:` du Scaffold.
 /// Flutter gère automatiquement le padding de la status bar.
 class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String userName;
+  final NotificationsController? notificationsController;
   final VoidCallback? onNotificationTap;
   final VoidCallback? onProfileTap;
 
   const HomeAppBar({
     super.key,
     required this.userName,
+    this.notificationsController,
     this.onNotificationTap,
     this.onProfileTap,
   });
@@ -63,11 +66,14 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
                   color: Colors.white.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.notifications_outlined,
-                  color: Colors.white,
-                  size: 20,
-                ),
+                child: notificationsController != null
+                    ? ListenableBuilder(
+                        listenable: notificationsController!,
+                        builder: (context, _) => _bellIcon(
+                          notificationsController!.unreadCount,
+                        ),
+                      )
+                    : _bellIcon(0),
               ),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
@@ -94,6 +100,34 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _bellIcon(int unreadCount) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        const Center(
+          child: Icon(
+            Icons.notifications_outlined,
+            color: Colors.white,
+            size: 20,
+          ),
+        ),
+        if (unreadCount > 0)
+          Positioned(
+            right: 4,
+            top: 4,
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: const BoxDecoration(
+                color: Color(0xFFE53935),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+      ],
     );
   }
 

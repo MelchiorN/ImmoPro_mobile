@@ -1,17 +1,19 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../domain/entities/listing_entity.dart';
+import '../../domain/repositories/my_listings_repository.dart';
 import '../../domain/usecases/get_my_listings_usecase.dart';
 
 enum MyListingsStatus { initial, loading, loaded, empty, error }
 
 class MyListingsController extends ChangeNotifier {
   final GetMyListingsUseCase _getMyListings;
+  final MyListingsRepository? _repository;
 
   static const _refreshInterval = Duration(seconds: 30);
   Timer? _refreshTimer;
 
-  MyListingsController(this._getMyListings);
+  MyListingsController(this._getMyListings, [this._repository]);
 
   MyListingsStatus _status = MyListingsStatus.initial;
   List<ListingEntity> _listings = [];
@@ -75,6 +77,23 @@ class MyListingsController extends ChangeNotifier {
   void setFilter(String? statut) {
     _filterStatut = statut;
     notifyListeners();
+  }
+
+  /// Remplace les photos d'un bien et met à jour la liste locale.
+  Future<ListingEntity?> uploadMedia(
+      String bienId, List<String> filePaths) async {
+    if (_repository == null) return null;
+    try {
+      final updated = await _repository!.uploadMedia(bienId, filePaths);
+      // Met à jour le listing local pour refléter les nouvelles images
+      _listings = _listings
+          .map((l) => l.id == bienId ? updated : l)
+          .toList();
+      notifyListeners();
+      return updated;
+    } catch (e) {
+      rethrow;
+    }
   }
 
   @override

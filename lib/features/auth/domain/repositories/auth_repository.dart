@@ -23,7 +23,11 @@ abstract class AuthRepository {
   Future<UserEntity> verifyOtp({
     required String email,
     required String otp,
+    String? pendingToken,
   });
 
-  Future<void> resendOtp({required String email});
+  Future<void> resendOtp({
+    required String email,
+    String? pendingToken,
+  });
 }

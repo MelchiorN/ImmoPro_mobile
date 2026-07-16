@@ -1,3 +1,5 @@
+import '../../../home/domain/entities/property_entity.dart';
+import '../../../home/data/models/property_model.dart';
 import '../../domain/entities/listing_entity.dart';
 
 class ListingModel extends ListingEntity {
@@ -17,18 +19,21 @@ class ListingModel extends ListingEntity {
     super.publishedAt,
     super.createdAt,
     super.rejectionReason,
+    super.medias,
   });
 
   factory ListingModel.fromJson(Map<String, dynamic> json) {
     // Récupère la photo principale depuis le tableau medias ou photo_principale
     String? imageUrl = json['photo_principale'] as String?;
     final mediasRaw = json['medias'] as List<dynamic>? ?? [];
-    if ((imageUrl == null || imageUrl.isEmpty) && mediasRaw.isNotEmpty) {
-      for (final m in mediasRaw) {
-        final type = m['type'] as String? ?? '';
-        final url  = m['url']  as String? ?? '';
-        if (type == 'image' && url.isNotEmpty) {
-          imageUrl = url;
+    final List<PropertyMedia> medias = mediasRaw
+        .map((m) => PropertyMediaModel.fromJson(m as Map<String, dynamic>))
+        .toList();
+
+    if ((imageUrl == null || imageUrl.isEmpty) && medias.isNotEmpty) {
+      for (final m in medias) {
+        if (m.type == 'image' && m.url.isNotEmpty) {
+          imageUrl = m.url;
           break;
         }
       }
@@ -60,6 +65,7 @@ class ListingModel extends ListingEntity {
       publishedAt:     json['publie_le']        as String?,
       createdAt:       json['created_at']       as String?,
       rejectionReason: rejectionReason,
+      medias:          medias,
     );
   }
 }

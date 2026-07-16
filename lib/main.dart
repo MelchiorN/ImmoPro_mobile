@@ -55,12 +55,20 @@ class ImmoproApp extends StatelessWidget {
         '/publish': (context) => const Step1InfoPage(),
       },
 
-      // ── Route dynamique pour OTP (email passé en argument) ─────────────
+      // ── Route dynamique pour OTP (arguments supportant Map ou String) ─────────────
       onGenerateRoute: (settings) {
         if (settings.name == '/otp') {
-          final email = settings.arguments as String? ?? '';
+          String email = '';
+          String? pendingToken;
+          if (settings.arguments is Map<String, dynamic>) {
+            final args = settings.arguments as Map<String, dynamic>;
+            email = args['email'] as String? ?? '';
+            pendingToken = args['pendingToken'] as String?;
+          } else if (settings.arguments is String) {
+            email = settings.arguments as String;
+          }
           return MaterialPageRoute(
-            builder: (_) => OtpPage(email: email),
+            builder: (_) => OtpPage(email: email, pendingToken: pendingToken),
             settings: settings,
           );
         }

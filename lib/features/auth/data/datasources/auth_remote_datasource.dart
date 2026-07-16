@@ -17,16 +17,25 @@ abstract class AuthRemoteDataSource {
     required String confirmPassword,
   });
 
-  Future<UserModel> verifyOtp({required String email, required String otp});
+  Future<UserModel> verifyOtp({
+    required String email,
+    required String otp,
+    String? pendingToken,
+  });
 
-  Future<void> resendOtp({required String email});
+  Future<void> resendOtp({
+    required String email,
+    String? pendingToken,
+  });
+
+  String? get pendingToken;
 }
 
 /// Implémentation de la data source avec des appels HTTP réels vers le backend Laravel.
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   final ApiClient _client;
 
-  const AuthRemoteDataSourceImpl(this._client);
+  AuthRemoteDataSourceImpl(this._client);
 
   // ─────────────────────────────────────────────────────────────────────────
   // POST /api/client/login
@@ -58,6 +67,12 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   // POST /api/register
   // ─────────────────────────────────────────────────────────────────────────
 
+  // Stocke le pending_token retourné par le backend pour le passer à verify-otp
+  String? _pendingToken;
+
+  /// Expose le pending_token pour que l'OtpPage puisse le récupérer
+  String? get pendingToken => _pendingToken;
+
   @override
   Future<UserModel> register({
     required String firstName,
@@ -70,7 +85,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String password,
     required String confirmPassword,
   }) async {
-    await _client.post('/register', {
+    final body = await _client.post('/register', {
       'first_name': firstName,
       'last_name': lastName,
       'email': email,
@@ -81,10 +96,11 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       'password_confirmation': confirmPassword,
     });
 
-    // Le backend ne retourne pas de token ici, seulement un message.
-    // On créé un UserModel minimal pour faciliter le flux (l'OTP doit ensuite être validé).
+    // Stocker le pending_token pour l'utiliser dans verify-otp et resend-otp
+    _pendingToken = body['pending_token'] as String?;
+
     return UserModel(
-      id: '', // pas encore disponible
+      id: '',
       firstName: firstName,
       lastName: lastName,
       email: email,
@@ -104,10 +120,13 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   Future<UserModel> verifyOtp({
     required String email,
     required String otp,
+    String? pendingToken,
   }) async {
+    final tokenToSend = pendingToken ?? _pendingToken;
     final body = await _client.post('/verify-otp', {
       'email': email,
       'otp': otp,
+      if (tokenToSend != null) 'pending_token': tokenToSend,
     });
 
     // Réponse : { "message": "...", "token": "...", "user": {...} }
@@ -115,6 +134,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     final userJson = body['user'] as Map<String, dynamic>;
 
     await _client.saveToken(token);
+    _pendingToken = null; // nettoyer après utilisation
 
     return UserModel.fromJson({
       ...userJson,
@@ -127,7 +147,14 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   // ─────────────────────────────────────────────────────────────────────────
 
   @override
-  Future<void> resendOtp({required String email}) async {
-    await _client.post('/resend-otp', {'email': email});
+  Future<void> resendOtp({
+    required String email,
+    String? pendingToken,
+  }) async {
+    final tokenToSend = pendingToken ?? _pendingToken;
+    await _client.post('/resend-otp', {
+      'email': email,
+      if (tokenToSend != null) 'pending_token': tokenToSend,
+    });
   }
 }

@@ -85,9 +85,13 @@ class _RegisterPageState extends State<RegisterPage> {
           .then((_) {
         if (!mounted) return;
         if (_controller.status == RegisterStatus.success) {
+          final pendingToken = ServiceLocator.instance.authRemoteDataSource.pendingToken;
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (_) => OtpPage(email: _emailCtrl.text.trim()),
+              builder: (_) => OtpPage(
+                email: _emailCtrl.text.trim(),
+                pendingToken: pendingToken,
+              ),
             ),
           );
         }

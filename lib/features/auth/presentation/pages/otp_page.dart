@@ -7,7 +7,8 @@ import '../../../home/presentation/pages/home_page.dart';
 
 class OtpPage extends StatefulWidget {
   final String email;
-  const OtpPage({super.key, required this.email});
+  final String? pendingToken;
+  const OtpPage({super.key, required this.email, this.pendingToken});
 
   @override
   State<OtpPage> createState() => _OtpPageState();
@@ -27,6 +28,7 @@ class _OtpPageState extends State<OtpPage> {
       verifyOtpUseCase: ServiceLocator.instance.verifyOtpUseCase,
       resendOtpUseCase: ServiceLocator.instance.resendOtpUseCase,
       email: widget.email,
+      pendingToken: widget.pendingToken,
     );
 
     // Listener pour naviguer vers la page d'accueil après validation

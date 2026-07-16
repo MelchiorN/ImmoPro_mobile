@@ -47,23 +47,27 @@ class _MyListingsPageState extends State<MyListingsPage>
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: _buildAppBar(context),
-        body: Column(
-          children: [
-            _buildTabBar(),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _AnnonceTab(
-                    controller: _controller,
-                    filterStatut: _filterStatut,
-                    onFilterChanged: (s) => setState(() => _filterStatut = s),
-                  ),
-                  const _LocationTab(),
-                ],
+        body: SafeArea(
+          top: true,
+          bottom: false,
+          child: Column(
+            children: [
+              _buildTabBar(),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _AnnonceTab(
+                      controller: _controller,
+                      filterStatut: _filterStatut,
+                      onFilterChanged: (s) => setState(() => _filterStatut = s),
+                    ),
+                    const _LocationTab(),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -166,11 +170,11 @@ class _AnnonceTab extends StatelessWidget {
   final void Function(String?) onFilterChanged;
 
   static const _statusFilters = [
-    ('Tous',            null),
-    ('En attente',      'en_attente'),
+    ('Tous', null),
+    ('En attente', 'en_attente'),
     ('En vérification', 'en_verification'),
-    ('Publié',          'publie'),
-    ('Rejeté',          'rejete'),
+    ('Publié', 'publie'),
+    ('Rejeté', 'rejete'),
   ];
 
   const _AnnonceTab({
@@ -187,9 +191,9 @@ class _AnnonceTab extends StatelessWidget {
         return switch (controller.status) {
           MyListingsStatus.initial ||
           MyListingsStatus.loading => _buildShimmer(),
-          MyListingsStatus.error   => _buildError(context),
-          MyListingsStatus.empty   => _buildNeverPublished(context),
-          MyListingsStatus.loaded  => _buildContent(context),
+          MyListingsStatus.error => _buildError(context),
+          MyListingsStatus.empty => _buildNeverPublished(context),
+          MyListingsStatus.loaded => _buildContent(context),
         };
       },
     );
@@ -228,7 +232,9 @@ class _AnnonceTab extends StatelessWidget {
                       if (controller.listings.isNotEmpty)
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.surfaceContainer,
                             borderRadius: BorderRadius.circular(20),
@@ -258,7 +264,9 @@ class _AnnonceTab extends StatelessWidget {
                             duration: const Duration(milliseconds: 180),
                             margin: const EdgeInsets.only(right: 8),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 7),
+                              horizontal: 14,
+                              vertical: 7,
+                            ),
                             decoration: BoxDecoration(
                               color: isActive
                                   ? AppColors.primaryContainer
@@ -267,8 +275,9 @@ class _AnnonceTab extends StatelessWidget {
                               border: Border.all(
                                 color: isActive
                                     ? AppColors.primaryContainer
-                                    : AppColors.outlineVariant
-                                        .withValues(alpha: 0.4),
+                                    : AppColors.outlineVariant.withValues(
+                                        alpha: 0.4,
+                                      ),
                               ),
                             ),
                             child: Text(
@@ -314,8 +323,7 @@ class _AnnonceTab extends StatelessWidget {
                       listing: items[i],
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) =>
-                              ListingDetailPage(listing: items[i]),
+                          builder: (_) => ListingDetailPage(listing: items[i]),
                         ),
                       ),
                     ),
@@ -336,8 +344,11 @@ class _AnnonceTab extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.wifi_off_rounded,
-                size: 56, color: AppColors.outline),
+            const Icon(
+              Icons.wifi_off_rounded,
+              size: 56,
+              color: AppColors.outline,
+            ),
             const SizedBox(height: 16),
             Text(
               controller.errorMessage ?? 'Erreur de chargement',
@@ -357,7 +368,8 @@ class _AnnonceTab extends StatelessWidget {
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24)),
+                  borderRadius: BorderRadius.circular(24),
+                ),
               ),
             ),
           ],
@@ -470,8 +482,11 @@ class _LocationTab extends StatelessWidget {
                 color: AppColors.surfaceContainerLow,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.calendar_month_outlined,
-                  size: 40, color: AppColors.outline),
+              child: const Icon(
+                Icons.calendar_month_outlined,
+                size: 40,
+                color: AppColors.outline,
+              ),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -543,8 +558,8 @@ class _ListingCard extends StatelessWidget {
                 child: SizedBox(
                   width: 96,
                   height: 96,
-                  child: listing.imageUrl != null &&
-                          listing.imageUrl!.isNotEmpty
+                  child:
+                      listing.imageUrl != null && listing.imageUrl!.isNotEmpty
                       ? Image.network(
                           listing.imageUrl!,
                           fit: BoxFit.cover,
@@ -599,8 +614,11 @@ class _ListingCard extends StatelessWidget {
                     // Localisation
                     Row(
                       children: [
-                        const Icon(Icons.location_on_outlined,
-                            size: 14, color: AppColors.secondary),
+                        const Icon(
+                          Icons.location_on_outlined,
+                          size: 14,
+                          color: AppColors.secondary,
+                        ),
                         const SizedBox(width: 3),
                         Expanded(
                           child: Text(
@@ -622,8 +640,11 @@ class _ListingCard extends StatelessWidget {
                     if (_dateLabel().isNotEmpty)
                       Row(
                         children: [
-                          const Icon(Icons.schedule_outlined,
-                              size: 12, color: AppColors.outline),
+                          const Icon(
+                            Icons.schedule_outlined,
+                            size: 12,
+                            color: AppColors.outline,
+                          ),
                           const SizedBox(width: 3),
                           Text(
                             _dateLabel(),
@@ -642,8 +663,11 @@ class _ListingCard extends StatelessWidget {
               // Flèche
               const Padding(
                 padding: EdgeInsets.only(top: 36),
-                child: Icon(Icons.chevron_right_rounded,
-                    color: AppColors.outlineVariant, size: 20),
+                child: Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.outlineVariant,
+                  size: 20,
+                ),
               ),
             ],
           ),
@@ -653,14 +677,15 @@ class _ListingCard extends StatelessWidget {
   }
 
   Widget _placeholder() => Container(
-        color: AppColors.surfaceContainerLow,
-        child: const Center(
-          child: Icon(Icons.home_outlined, color: AppColors.outline, size: 28),
-        ),
-      );
+    color: AppColors.surfaceContainerLow,
+    child: const Center(
+      child: Icon(Icons.home_outlined, color: AppColors.outline, size: 28),
+    ),
+  );
 
   String _formatPrice() {
-    final pType = listing.typeTransaction == 'location' ||
+    final pType =
+        listing.typeTransaction == 'location' ||
             listing.typeTransaction == 'colocation'
         ? PropertyType.rent
         : PropertyType.sale;
@@ -787,8 +812,11 @@ class _EmptyState extends StatelessWidget {
                 color: AppColors.surfaceContainerLow,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.home_work_outlined,
-                  size: 36, color: AppColors.outline),
+              child: const Icon(
+                Icons.home_work_outlined,
+                size: 36,
+                color: AppColors.outline,
+              ),
             ),
             const SizedBox(height: 16),
             Text(
@@ -857,10 +885,13 @@ class _ShimmerCardState extends State<_ShimmerCard>
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1200))
-      ..repeat();
-    _anim = Tween<double>(begin: -1.5, end: 1.5)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+    _anim = Tween<double>(
+      begin: -1.5,
+      end: 1.5,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
   @override
@@ -895,7 +926,7 @@ class _ShimmerCardState extends State<_ShimmerCard>
                     colors: const [
                       Color(0xFFECEEF0),
                       Color(0xFFF7F9FB),
-                      Color(0xFFECEEF0)
+                      Color(0xFFECEEF0),
                     ],
                   ),
                 ),
@@ -922,12 +953,12 @@ class _ShimmerCardState extends State<_ShimmerCard>
   }
 
   Widget _box(double w, double h) => Container(
-        width: w,
-        height: h,
-        margin: const EdgeInsets.only(bottom: 2),
-        decoration: BoxDecoration(
-          color: const Color(0xFFECEEF0),
-          borderRadius: BorderRadius.circular(4),
-        ),
-      );
+    width: w,
+    height: h,
+    margin: const EdgeInsets.only(bottom: 2),
+    decoration: BoxDecoration(
+      color: const Color(0xFFECEEF0),
+      borderRadius: BorderRadius.circular(4),
+    ),
+  );
 }

@@ -2,7 +2,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/di/service_locator.dart';
 import '../../../home/presentation/widgets/home_bottom_nav_bar.dart';
+import '../../../my_listings/domain/entities/listing_entity.dart';
+import '../../../my_listings/presentation/pages/listing_detail_page.dart';
+import '../../../my_listings/presentation/pages/my_listings_page.dart';
+import '../../../my_listings/presentation/controllers/my_listings_controller.dart';
 
 /// Écran de confirmation — "En cours de vérification".
 /// Affiché après soumission réussie du bien.
@@ -28,6 +33,67 @@ class _VerificationPageState extends State<VerificationPage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _bounceController;
   late final Animation<double> _bounceAnim;
+
+  bool _navigating = false;
+
+  /// Navigue vers Mes Annonces et ouvre directement le détail du bien soumis.
+  Future<void> _goToListing() async {
+    if (_navigating) return;
+    setState(() => _navigating = true);
+
+    try {
+      final controller = ServiceLocator.instance.myListingsController;
+
+      // Charger/rafraîchir la liste pour avoir le bien tout juste soumis
+      if (controller.status == MyListingsStatus.initial ||
+          controller.listings.isEmpty) {
+        await controller.load();
+      } else {
+        await controller.silentRefresh();
+      }
+
+      // Trouver le bien dans la liste
+      ListingEntity? listing;
+      try {
+        listing = controller.listings.firstWhere(
+          (l) => l.id == widget.propertyId,
+        );
+      } catch (_) {
+        // Bien pas encore indexé : construire un ListingEntity minimal
+        listing = ListingEntity(
+          id: widget.propertyId,
+          title: widget.propertyTitle,
+          description: null,
+          price: 0,
+          location: widget.propertyAddress,
+          typeBien: 'appartement',
+          typeTransaction: 'vente',
+          statut: 'en_attente',
+          imageUrl: null,
+          medias: const [],
+        );
+      }
+
+      if (!mounted) return;
+
+      // Naviguer vers MyListingsPage en effaçant la pile,
+      // puis empiler immédiatement ListingDetailPage par-dessus
+      await Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const MyListingsPage()),
+        (route) => route.settings.name == '/home',
+      );
+
+      if (!mounted) return;
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ListingDetailPage(listing: listing!),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _navigating = false);
+    }
+  }
 
   @override
   void initState() {
@@ -152,20 +218,18 @@ class _VerificationPageState extends State<VerificationPage>
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    // TODO: naviguer vers le suivi du statut
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Fonctionnalité de suivi à venir.',
-                          style: TextStyle(fontFamily: 'HankenGrotesk'),
-                        ),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.track_changes_rounded, size: 20),
-                  label: const Text('Suivre le statut'),
+                  onPressed: _navigating ? null : _goToListing,
+                  icon: _navigating
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.track_changes_rounded, size: 20),
+                  label: Text(_navigating ? 'Chargement...' : 'Suivre le statut'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryContainer,
                     foregroundColor: Colors.white,

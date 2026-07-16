@@ -103,5 +103,5 @@ class ServiceLocator {
 
   /// Singleton partagé — une seule instance pour tout le cycle de vie de l'app.
   late final MyListingsController myListingsController =
-      MyListingsController(getMyListingsUseCase);
+      MyListingsController(getMyListingsUseCase, myListingsRepository);
 }

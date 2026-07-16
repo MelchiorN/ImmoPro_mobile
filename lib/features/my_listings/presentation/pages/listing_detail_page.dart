@@ -1,20 +1,98 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/price_formatter.dart';
+import '../../../../core/di/service_locator.dart';
 import '../../../../features/home/domain/entities/property_entity.dart';
 import '../../domain/entities/listing_entity.dart';
 
 /// Page de détail d'une annonce de l'utilisateur avec suivi du statut.
-class ListingDetailPage extends StatelessWidget {
+class ListingDetailPage extends StatefulWidget {
   final ListingEntity listing;
 
   const ListingDetailPage({super.key, required this.listing});
 
   @override
+  State<ListingDetailPage> createState() => _ListingDetailPageState();
+}
+
+class _ListingDetailPageState extends State<ListingDetailPage> {
+  late ListingEntity _listing;
+  bool _uploadingMedia = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _listing = widget.listing;
+  }
+
+  // ── Logique changement de photos ─────────────────────────────────────────
+  Future<void> _changePhotos() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickMultiImage(
+      imageQuality: 85,
+      limit: 10,
+    );
+    if (picked.isEmpty) return;
+
+    setState(() => _uploadingMedia = true);
+
+    try {
+      final controller = ServiceLocator.instance.myListingsController;
+      final updated = await controller.uploadMedia(
+        _listing.id,
+        picked.map((f) => f.path).toList(),
+      );
+
+      if (updated != null && mounted) {
+        setState(() {
+          _listing = updated;
+          _uploadingMedia = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Photos mises à jour avec succès.'),
+            backgroundColor: Color(0xFF1A56A0),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _uploadingMedia = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erreur lors de la mise à jour des photos.'),
+            backgroundColor: AppColors.error,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  void _openImageViewer(List<PropertyMedia> images, int startIndex) {
+    if (images.isEmpty) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => _ListingImageViewerPage(
+          images: images,
+          initialIndex: startIndex,
+        ),
+      ),
+    );
+  }
+
+  bool get _canEditPhotos {
+    // Le client peut changer les photos seulement si le bien est modifiable
+    return ['brouillon', 'rejete', 'en_attente'].contains(_listing.statut);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
-
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -22,49 +100,101 @@ class ListingDetailPage extends StatelessWidget {
       ),
       child: Scaffold(
         backgroundColor: AppColors.background,
-        body: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHero(context),
-                    Transform.translate(
-                      offset: const Offset(0, -24),
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.vertical(
-                              top: Radius.circular(28)),
-                        ),
-                        padding: EdgeInsets.fromLTRB(
-                            16, 24, 16, bottomPad + 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildHeader(),
-                            const SizedBox(height: 20),
-                            _StatusTracker(statut: listing.statut),
-                            const SizedBox(height: 20),
-                            if (listing.statut == 'rejete' &&
-                                listing.rejectionReason != null)
-                              _RejectionCard(reason: listing.rejectionReason!),
-                            _buildInfoSection(),
-                            const SizedBox(height: 20),
-                            if (listing.description != null &&
-                                listing.description!.isNotEmpty)
-                              _buildDescription(),
-                          ],
+        body: SafeArea(
+          top: true,
+          bottom: false,
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHero(context),
+                      Transform.translate(
+                        offset: const Offset(0, -24),
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(28),
+                            ),
+                          ),
+                          padding: EdgeInsets.fromLTRB(
+                            16,
+                            24,
+                            16,
+                            bottomPad + 16,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildHeader(),
+                              const SizedBox(height: 20),
+                              _StatusTracker(statut: _listing.statut),
+                              const SizedBox(height: 20),
+                              if (_listing.statut == 'rejete' &&
+                                  _listing.rejectionReason != null)
+                                _RejectionCard(
+                                  reason: _listing.rejectionReason!,
+                                ),
+                              // Bouton changer photos (si statut modifiable)
+                              if (_canEditPhotos) ...[
+                                _buildChangePhotosButton(),
+                                const SizedBox(height: 20),
+                              ],
+                              _buildInfoSection(),
+                              const SizedBox(height: 20),
+                              if (_listing.description != null &&
+                                  _listing.description!.isNotEmpty)
+                                _buildDescription(),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Bouton changer photos ─────────────────────────────────────────────────
+  Widget _buildChangePhotosButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: _uploadingMedia ? null : _changePhotos,
+        icon: _uploadingMedia
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primaryContainer,
+                ),
+              )
+            : const Icon(Icons.photo_library_outlined, size: 20),
+        label: Text(
+          _uploadingMedia ? 'Envoi en cours...' : 'Changer les photos',
+          style: const TextStyle(
+            fontFamily: 'HankenGrotesk',
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.primaryContainer,
+          side: const BorderSide(color: AppColors.primaryContainer, width: 1.5),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
     );
@@ -72,81 +202,229 @@ class ListingDetailPage extends StatelessWidget {
 
   // ── Hero image ───────────────────────────────────────────────────────────
   Widget _buildHero(BuildContext context) {
+    final List<PropertyMedia> images = List<PropertyMedia>.from(
+      _listing.medias.where((m) => m.type == 'image'),
+    );
+    if (images.isEmpty && _listing.imageUrl != null && _listing.imageUrl!.isNotEmpty) {
+      images.add(PropertyMedia(id: 'primary', type: 'image', url: _listing.imageUrl!));
+    }
+
+    int currentIndex = 0;
+
     return SizedBox(
       height: 280,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Image de couverture
-          if (listing.imageUrl != null && listing.imageUrl!.isNotEmpty)
-            Image.network(
-              listing.imageUrl!,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _heroPlaceholder(),
-            )
-          else
-            _heroPlaceholder(),
+      child: StatefulBuilder(
+        builder: (context, setHeroState) {
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              // Image/Carousel de couverture
+              if (images.isNotEmpty)
+                PageView.builder(
+                  itemCount: images.length,
+                  onPageChanged: (idx) {
+                    setHeroState(() {
+                      currentIndex = idx;
+                    });
+                  },
+                  itemBuilder: (ctx, i) {
+                    return GestureDetector(
+                      onTap: () => _openImageViewer(images, i),
+                      child: Image.network(
+                        images[i].url,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _heroPlaceholder(),
+                      ),
+                    );
+                  },
+                )
+              else
+                _heroPlaceholder(),
 
-          // Dégradé haut
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.5),
-                  Colors.transparent,
-                ],
-                stops: const [0.0, 0.5],
-              ),
-            ),
-          ),
-
-          // Bouton retour
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: GestureDetector(
-                onTap: () {
-                  FocusScope.of(context).unfocus();
-                  Navigator.of(context).pop();
-                },
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    shape: BoxShape.circle,
+              // Dégradé haut
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.5),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.5],
                   ),
-                  child: const Icon(Icons.arrow_back_rounded,
-                      color: Colors.white, size: 22),
                 ),
               ),
-            ),
-          ),
 
-          // Badge type de bien
-          Positioned(
-            bottom: 36,
-            left: 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                _typeBienLabel(listing.typeBien),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'HankenGrotesk',
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+              // Dégradé bas (pour visibilité du bouton caméra et badges)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  height: 80,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.6),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-        ],
+
+              // Bouton retour
+              Positioned(
+                top: 12,
+                left: 12,
+                child: GestureDetector(
+                  onTap: () {
+                    FocusScope.of(context).unfocus();
+                    Navigator.of(context).pop();
+                  },
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.arrow_back_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Bouton caméra (overlay bas droite) — visible si statut modifiable
+              if (_canEditPhotos)
+                Positioned(
+                  bottom: 16,
+                  right: 16,
+                  child: GestureDetector(
+                    onTap: _uploadingMedia ? null : _changePhotos,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 9),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_uploadingMedia)
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.primaryContainer,
+                              ),
+                            )
+                          else
+                            const Icon(
+                              Icons.camera_alt_rounded,
+                              size: 16,
+                              color: AppColors.primaryContainer,
+                            ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _uploadingMedia ? 'Envoi...' : 'Changer photos',
+                            style: const TextStyle(
+                              fontFamily: 'HankenGrotesk',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primaryContainer,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Badge type de bien
+              Positioned(
+                bottom: 36,
+                left: 16,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    _typeBienLabel(_listing.typeBien),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'HankenGrotesk',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Compteur de photos et icône plein écran (si plusieurs images)
+              if (images.isNotEmpty)
+                Positioned(
+                  bottom: 36,
+                  right: _canEditPhotos ? 140 : 16,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GestureDetector(
+                        onTap: () => _openImageViewer(images, currentIndex),
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 6),
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Icon(
+                            Icons.fullscreen_rounded,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                      if (images.length > 1)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '${currentIndex + 1}/${images.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontFamily: 'HankenGrotesk',
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -155,17 +433,20 @@ class ListingDetailPage extends StatelessWidget {
     return Container(
       color: AppColors.primaryContainer.withValues(alpha: 0.2),
       child: const Center(
-        child: Icon(Icons.home_work_outlined,
-            size: 64, color: AppColors.primaryContainer),
+        child: Icon(
+          Icons.home_work_outlined,
+          size: 64,
+          color: AppColors.primaryContainer,
+        ),
       ),
     );
   }
 
   // ── En-tête titre + prix ─────────────────────────────────────────────────
   Widget _buildHeader() {
-    // Construit un PropertyType factice pour le formateur de prix
-    final pType = listing.typeTransaction == 'location' ||
-            listing.typeTransaction == 'colocation'
+    final pType =
+        _listing.typeTransaction == 'location' ||
+            _listing.typeTransaction == 'colocation'
         ? PropertyType.rent
         : PropertyType.sale;
 
@@ -173,7 +454,7 @@ class ListingDetailPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          listing.title,
+          _listing.title,
           style: const TextStyle(
             fontFamily: 'Manrope',
             fontSize: 22,
@@ -184,7 +465,7 @@ class ListingDetailPage extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          formatPriceFcfa(listing.price, pType),
+          formatPriceFcfa(_listing.price, pType),
           style: const TextStyle(
             fontFamily: 'Manrope',
             fontSize: 24,
@@ -195,12 +476,15 @@ class ListingDetailPage extends StatelessWidget {
         const SizedBox(height: 8),
         Row(
           children: [
-            const Icon(Icons.location_on_outlined,
-                size: 14, color: AppColors.secondary),
+            const Icon(
+              Icons.location_on_outlined,
+              size: 14,
+              color: AppColors.secondary,
+            ),
             const SizedBox(width: 4),
             Expanded(
               child: Text(
-                listing.location,
+                _listing.location,
                 style: const TextStyle(
                   fontFamily: 'HankenGrotesk',
                   fontSize: 13,
@@ -211,10 +495,9 @@ class ListingDetailPage extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 6),
-        // Date de création
-        if (listing.createdAt != null)
+        if (_listing.createdAt != null)
           Text(
-            'Créée le ${_formatDate(listing.createdAt!)}',
+            'Créée le ${_formatDate(_listing.createdAt!)}',
             style: const TextStyle(
               fontFamily: 'HankenGrotesk',
               fontSize: 11,
@@ -228,15 +511,16 @@ class ListingDetailPage extends StatelessWidget {
   // ── Section caractéristiques ─────────────────────────────────────────────
   Widget _buildInfoSection() {
     final pills = <_Pill>[];
-    if (listing.surface != null) {
-      pills.add(_Pill(Icons.square_foot_outlined,
-          '${listing.surface!.toInt()} m²'));
+    if (_listing.surface != null) {
+      pills.add(
+        _Pill(Icons.square_foot_outlined, '${_listing.surface!.toInt()} m²'),
+      );
     }
-    if (listing.rooms != null) {
-      pills.add(_Pill(Icons.meeting_room_outlined, '${listing.rooms} pièces'));
+    if (_listing.rooms != null) {
+      pills.add(_Pill(Icons.meeting_room_outlined, '${_listing.rooms} pièces'));
     }
-    if (listing.bathrooms != null) {
-      pills.add(_Pill(Icons.bathtub_outlined, '${listing.bathrooms} SDB'));
+    if (_listing.bathrooms != null) {
+      pills.add(_Pill(Icons.bathtub_outlined, '${_listing.bathrooms} SDB'));
     }
     if (pills.isEmpty) return const SizedBox.shrink();
 
@@ -260,12 +544,15 @@ class ListingDetailPage extends StatelessWidget {
               .map(
                 (p) => Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 9),
+                    horizontal: 14,
+                    vertical: 9,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                        color: AppColors.primary.withValues(alpha: 0.2)),
+                      color: AppColors.primary.withValues(alpha: 0.2),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -307,7 +594,7 @@ class ListingDetailPage extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          listing.description!,
+          _listing.description!,
           style: const TextStyle(
             fontFamily: 'HankenGrotesk',
             fontSize: 14,
@@ -321,12 +608,18 @@ class ListingDetailPage extends StatelessWidget {
 
   String _typeBienLabel(String raw) {
     switch (raw) {
-      case 'appartement':  return 'Appartement';
-      case 'villa':        return 'Villa';
-      case 'maison':       return 'Maison';
-      case 'terrain':      return 'Terrain';
-      case 'bureau_commerce': return 'Bureau / Commerce';
-      default:             return raw;
+      case 'appartement':
+        return 'Appartement';
+      case 'villa':
+        return 'Villa';
+      case 'maison':
+        return 'Maison';
+      case 'terrain':
+        return 'Terrain';
+      case 'bureau_commerce':
+        return 'Bureau / Commerce';
+      default:
+        return raw;
     }
   }
 
@@ -355,16 +648,16 @@ class _StatusTracker extends StatelessWidget {
   const _StatusTracker({required this.statut});
 
   static const _steps = [
-    _StepDef('Soumis',        'en_attente',      Icons.upload_rounded),
-    _StepDef('Vérification',  'en_verification', Icons.search_rounded),
-    _StepDef('Visite',        'visite',          Icons.calendar_month_outlined),
-    _StepDef('Publié',        'publie',          Icons.verified_rounded),
+    _StepDef('Soumis', 'en_attente', Icons.upload_rounded),
+    _StepDef('Vérification', 'en_verification', Icons.search_rounded),
+    _StepDef('Visite', 'visite', Icons.calendar_month_outlined),
+    _StepDef('Publié', 'publie', Icons.verified_rounded),
   ];
 
   @override
   Widget build(BuildContext context) {
     final isRejected = statut == 'rejete';
-    final isArchived  = statut == 'archive';
+    final isArchived = statut == 'archive';
 
     // Index de l'étape courante dans le pipeline normal
     int activeIndex = _steps.indexWhere((s) => s.key == statut);
@@ -376,8 +669,8 @@ class _StatusTracker extends StatelessWidget {
         color: isRejected
             ? const Color(0xFFFFE4E4)
             : isArchived
-                ? AppColors.surfaceContainerLow
-                : const Color(0xFFE8F4FF),
+            ? AppColors.surfaceContainerLow
+            : const Color(0xFFE8F4FF),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isRejected
@@ -394,9 +687,11 @@ class _StatusTracker extends StatelessWidget {
                 isRejected
                     ? Icons.cancel_rounded
                     : isArchived
-                        ? Icons.archive_rounded
-                        : Icons.track_changes_rounded,
-                color: isRejected ? AppColors.error : AppColors.primaryContainer,
+                    ? Icons.archive_rounded
+                    : Icons.track_changes_rounded,
+                color: isRejected
+                    ? AppColors.error
+                    : AppColors.primaryContainer,
                 size: 20,
               ),
               const SizedBox(width: 8),
@@ -406,7 +701,9 @@ class _StatusTracker extends StatelessWidget {
                   fontFamily: 'Manrope',
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: isRejected ? AppColors.error : AppColors.primaryContainer,
+                  color: isRejected
+                      ? AppColors.error
+                      : AppColors.primaryContainer,
                 ),
               ),
             ],
@@ -420,9 +717,9 @@ class _StatusTracker extends StatelessWidget {
             // Timeline de progression
             Row(
               children: _steps.asMap().entries.expand((e) {
-                final idx  = e.key;
+                final idx = e.key;
                 final step = e.value;
-                final isDone   = idx < activeIndex;
+                final isDone = idx < activeIndex;
                 final isActive = idx == activeIndex;
 
                 return [
@@ -489,8 +786,7 @@ class _StepNode extends StatelessWidget {
             boxShadow: isActive
                 ? [
                     BoxShadow(
-                      color: AppColors.primaryContainer
-                          .withValues(alpha: 0.35),
+                      color: AppColors.primaryContainer.withValues(alpha: 0.35),
                       blurRadius: 10,
                       spreadRadius: 2,
                     ),
@@ -541,8 +837,8 @@ class _TerminalStatus extends StatelessWidget {
           ),
           child: Icon(
             isRejected ? Icons.cancel_rounded : Icons.archive_rounded,
-            color: isRejected ? AppColors.error : AppColors.onSurfaceVariant,
-            size: 22,
+            color: isRejected ? AppColors.error : AppColors.outline,
+            size: 20,
           ),
         ),
         const SizedBox(width: 12),
@@ -559,11 +855,11 @@ class _TerminalStatus extends StatelessWidget {
                   color: isRejected ? AppColors.error : AppColors.onSurface,
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 4),
               Text(
                 isRejected
-                    ? 'Votre annonce n\'a pas été validée.'
-                    : 'Cette annonce n\'est plus visible.',
+                    ? 'Votre annonce n\'a pas été validée. Veuillez corriger les problèmes indiqués.'
+                    : 'Cette annonce a été archivée et n\'est plus visible par les utilisateurs.',
                 style: TextStyle(
                   fontFamily: 'HankenGrotesk',
                   fontSize: 12,
@@ -601,8 +897,11 @@ class _RejectionCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline_rounded,
-              color: AppColors.error, size: 18),
+          const Icon(
+            Icons.info_outline_rounded,
+            color: AppColors.error,
+            size: 18,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -631,6 +930,242 @@ class _RejectionCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Visionneuse plein écran avec défilement entre les images
+// ─────────────────────────────────────────────────────────────────────────────
+class _ListingImageViewerPage extends StatefulWidget {
+  final List<PropertyMedia> images;
+  final int initialIndex;
+
+  const _ListingImageViewerPage({required this.images, required this.initialIndex});
+
+  @override
+  State<_ListingImageViewerPage> createState() => _ListingImageViewerPageState();
+}
+
+class _ListingImageViewerPageState extends State<_ListingImageViewerPage> {
+  late final PageController _pageController;
+  late int _current;
+
+  @override
+  void initState() {
+    super.initState();
+    _current = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          children: [
+            // PageView avec zoom par InteractiveViewer
+            PageView.builder(
+              controller: _pageController,
+              itemCount: widget.images.length,
+              onPageChanged: (i) => setState(() => _current = i),
+              itemBuilder: (ctx, i) {
+                final img = widget.images[i];
+                return InteractiveViewer(
+                  minScale: 0.8,
+                  maxScale: 4.0,
+                  child: Center(
+                    child: Image.network(
+                      img.url,
+                      fit: BoxFit.contain,
+                      loadingBuilder: (_, child, p) => p == null
+                          ? child
+                          : const Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            ),
+                      errorBuilder: (_, __, ___) => const Center(
+                        child: Icon(
+                          Icons.broken_image_outlined,
+                          color: Colors.white54,
+                          size: 64,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+
+            // Dégradé haut pour les boutons
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 100,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.6),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Bouton fermer et compteur
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                    // Compteur
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${_current + 1} / ${widget.images.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'HankenGrotesk',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Flèche gauche
+            if (_current > 0)
+              Positioned(
+                left: 8,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: GestureDetector(
+                    onTap: () => _pageController.previousPage(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    ),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.chevron_left_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Flèche droite
+            if (_current < widget.images.length - 1)
+              Positioned(
+                right: 8,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: GestureDetector(
+                    onTap: () => _pageController.nextPage(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    ),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.chevron_right_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Indicateurs de points en bas
+            if (widget.images.length > 1)
+              Positioned(
+                bottom: 32,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(widget.images.length, (i) {
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: i == _current ? 20 : 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: i == _current
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

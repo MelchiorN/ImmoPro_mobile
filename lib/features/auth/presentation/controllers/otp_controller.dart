@@ -10,11 +10,13 @@ class OtpController extends ChangeNotifier {
   final VerifyOtpUseCase verifyOtpUseCase;
   final ResendOtpUseCase resendOtpUseCase;
   final String email;
+  final String? pendingToken;
 
   OtpController({
     required this.verifyOtpUseCase,
     required this.resendOtpUseCase,
     required this.email,
+    this.pendingToken,
   }) {
     _startCountdown();
   }
@@ -64,7 +66,7 @@ class OtpController extends ChangeNotifier {
 
     try {
       _authenticatedUser = await verifyOtpUseCase(
-        VerifyOtpParams(email: email, otp: otp),
+        VerifyOtpParams(email: email, otp: otp, pendingToken: pendingToken),
       );
       ServiceLocator.instance.currentUser = _authenticatedUser;
       _status = OtpStatus.success;
@@ -78,7 +80,7 @@ class OtpController extends ChangeNotifier {
   Future<void> resend() async {
     if (!_canResend) return;
     try {
-      await resendOtpUseCase(email);
+      await resendOtpUseCase(email, pendingToken: pendingToken);
       _startCountdown();
       _errorMessage = null;
       _status = OtpStatus.idle;

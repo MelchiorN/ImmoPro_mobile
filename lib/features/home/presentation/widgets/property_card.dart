@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../domain/entities/property_entity.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -121,15 +122,67 @@ class PropertyCard extends StatelessWidget {
   }
 }
 
-class _PropertyCardMedia extends StatelessWidget {
+class _PropertyCardMedia extends StatefulWidget {
   final PropertyEntity property;
 
   const _PropertyCardMedia({required this.property});
 
   @override
+  State<_PropertyCardMedia> createState() => _PropertyCardMediaState();
+}
+
+class _PropertyCardMediaState extends State<_PropertyCardMedia> {
+  late PageController _pageController;
+  Timer? _timer;
+  int _absolutePage = 0;
+  int _currentPage = 0;
+  List<String> _imageUrls = [];
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // Extraire les images
+    _imageUrls = widget.property.medias
+        .where((m) => m.type == 'image')
+        .map((m) => m.url)
+        .toList();
+
+    // Si pas de médias trouvés mais imageUrl est présent (fallback)
+    if (_imageUrls.isEmpty &&
+        widget.property.imageUrl != null &&
+        widget.property.imageUrl!.isNotEmpty) {
+      _imageUrls.add(widget.property.imageUrl!);
+    }
+
+    // On commence à un index très grand pour permettre le défilement infini dans les deux sens (si le swipe est activé)
+    _absolutePage = _imageUrls.isNotEmpty ? _imageUrls.length * 1000 : 0;
+    _pageController = PageController(initialPage: _absolutePage);
+
+    if (_imageUrls.length > 1) {
+      _timer = Timer.periodic(const Duration(seconds: 4), (timer) {
+        if (_pageController.hasClients) {
+          _absolutePage++;
+          _pageController.animateToPage(
+            _absolutePage,
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeInOut,
+          );
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final hasVideo = property.videoUrl != null && property.videoUrl!.isNotEmpty;
-    final imageUrl = property.imageUrl;
+    final hasVideo = widget.property.videoUrl != null && widget.property.videoUrl!.isNotEmpty;
 
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
@@ -139,28 +192,72 @@ class _PropertyCardMedia extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Image de couverture
-            if (imageUrl != null && imageUrl.isNotEmpty)
-              Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(
-                    color: AppColors.surfaceContainerLow,
-                    child: const Center(
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.primary,
-                      ),
-                    ),
+            // Image(s) de couverture
+            if (_imageUrls.isNotEmpty)
+              PageView.builder(
+                controller: _pageController,
+                physics: const NeverScrollableScrollPhysics(), // Désactiver le scroll manuel pour ne pas interférer avec le swipe de la carte
+                onPageChanged: (index) {
+                  setState(() {
+                    _absolutePage = index;
+                    _currentPage = index % _imageUrls.length;
+                  });
+                },
+                itemBuilder: (context, index) {
+                  final realIndex = index % _imageUrls.length;
+                  return Image.network(
+                    _imageUrls[realIndex],
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        color: AppColors.surfaceContainerLow,
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) =>
+                        _placeholder(),
                   );
                 },
-                errorBuilder: (context, error, stackTrace) =>
-                    _placeholder(),
               )
             else
               _placeholder(),
+
+            // Indicateurs de page (points) si plus d'une image
+            if (_imageUrls.length > 1)
+              Positioned(
+                bottom: 10,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(_imageUrls.length, (index) {
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      height: 6,
+                      width: _currentPage == index ? 16 : 6,
+                      decoration: BoxDecoration(
+                        color: _currentPage == index
+                            ? AppColors.primary
+                            : Colors.white.withValues(alpha: 0.7),
+                        borderRadius: BorderRadius.circular(3),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 2,
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ),
+              ),
 
             // Badge vidéo
             if (hasVideo)
@@ -220,7 +317,7 @@ class _PropertyCardMedia extends StatelessWidget {
 
             // Badge catégorie
             Positioned(
-              bottom: 10,
+              top: 10,
               left: 10,
               child: Container(
                 padding:
@@ -230,7 +327,7 @@ class _PropertyCardMedia extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  property.category,
+                  widget.property.category,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 10,

@@ -14,6 +14,8 @@ import '../../domain/usecases/search_properties_usecase.dart';
 import '../../domain/usecases/get_categories_usecase.dart';
 import '../../domain/usecases/get_property_detail_usecase.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../notifications/presentation/controllers/notifications_controller.dart';
+import '../../../notifications/presentation/pages/notifications_page.dart';
 import '../../../profile/presentation/pages/profile_page.dart';
 import 'property_detail_page.dart';
 
@@ -27,6 +29,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   late final HomeController _controller;
   late final GetPropertyDetailUseCase _getDetailUseCase;
+  late final NotificationsController _notificationsController;
   final TextEditingController _searchTextController = TextEditingController();
 
   @override
@@ -45,6 +48,9 @@ class _HomePageState extends State<HomePage> {
       getCategoriesUseCase: GetCategoriesUseCase(repository),
     );
 
+    _notificationsController = NotificationsController();
+    _notificationsController.load();
+
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: AppColors.primaryContainer,
       statusBarIconBrightness: Brightness.light,
@@ -58,6 +64,7 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     _searchTextController.dispose();
     _controller.dispose();
+    _notificationsController.dispose();
     super.dispose();
   }
 
@@ -73,13 +80,13 @@ class _HomePageState extends State<HomePage> {
         // HomeAppBar comme vrai appBar du Scaffold → status bar gérée automatiquement
         appBar: HomeAppBar(
           userName: _controller.userName,
-          onNotificationTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Notifications'),
-                duration: Duration(seconds: 1),
-              ),
+          notificationsController: _notificationsController,
+          onNotificationTap: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const NotificationsPage()),
             );
+            // Rafraîchir le compteur au retour
+            _notificationsController.load();
           },
           onProfileTap: () {
             Navigator.of(context).push(
