@@ -84,7 +84,7 @@ class MyListingsController extends ChangeNotifier {
       String bienId, List<String> filePaths) async {
     if (_repository == null) return null;
     try {
-      final updated = await _repository!.uploadMedia(bienId, filePaths);
+      final updated = await _repository.uploadMedia(bienId, filePaths);
       // Met à jour le listing local pour refléter les nouvelles images
       _listings = _listings
           .map((l) => l.id == bienId ? updated : l)
@@ -100,7 +100,7 @@ class MyListingsController extends ChangeNotifier {
   Future<ListingEntity?> publishListing(String bienId) async {
     if (_repository == null) return null;
     try {
-      final updated = await _repository!.publishListing(bienId);
+      final updated = await _repository.publishListing(bienId);
       // Met à jour le listing local
       _listings = _listings
           .map((l) => l.id == bienId ? updated : l)

@@ -21,6 +21,12 @@ import '../../features/my_listings/data/datasources/my_listings_remote_datasourc
 import '../../features/my_listings/data/repositories/my_listings_repository_impl.dart';
 import '../../features/my_listings/domain/usecases/get_my_listings_usecase.dart';
 import '../../features/my_listings/presentation/controllers/my_listings_controller.dart';
+import '../../features/location_bien/data/datasources/location_remote_datasource.dart';
+import '../../features/location_bien/data/repositories/location_repository_impl.dart';
+import '../../features/location_bien/domain/usecases/initier_location_usecase.dart';
+import '../../features/location_bien/domain/usecases/accepter_contrat_usecase.dart';
+import '../../features/location_bien/domain/usecases/payer_location_usecase.dart';
+import '../../features/location_bien/presentation/controllers/location_controller.dart';
 
 /// Service Locator simple pour l'injection de dépendances.
 ///
@@ -104,4 +110,29 @@ class ServiceLocator {
   /// Singleton partagé — une seule instance pour tout le cycle de vie de l'app.
   late final MyListingsController myListingsController =
       MyListingsController(getMyListingsUseCase, myListingsRepository);
+
+  // ── Location ──────────────────────────────────────────────────────────────
+  late final LocationRemoteDataSource locationRemoteDataSource =
+      LocationRemoteDataSourceImpl(apiClient);
+
+  late final LocationRepositoryImpl locationRepository =
+      LocationRepositoryImpl(locationRemoteDataSource);
+
+  late final InitierLocationUseCase initierLocationUseCase =
+      InitierLocationUseCase(locationRepository);
+
+  late final AccepterContratUseCase accepterContratUseCase =
+      AccepterContratUseCase(locationRepository);
+
+  late final PayerLocationUseCase payerLocationUseCase =
+      PayerLocationUseCase(locationRepository);
+
+  /// Crée une NOUVELLE instance du controller à chaque tunnel de location.
+  /// Comme PublishController, il est stateful (multi-étapes) donc ne doit
+  /// pas être partagé.
+  LocationController createLocationController() => LocationController(
+        initierUseCase: initierLocationUseCase,
+        accepterUseCase: accepterContratUseCase,
+        payerUseCase: payerLocationUseCase,
+      );
 }

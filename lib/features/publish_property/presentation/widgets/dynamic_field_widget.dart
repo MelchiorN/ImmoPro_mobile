@@ -175,7 +175,7 @@ class _DynamicFieldWidgetState extends State<DynamicFieldWidget> {
               fontSize: 15, color: AppColors.onSurface))),
         Switch(
           value: current,
-          activeColor: AppColors.primaryContainer,
+          activeThumbColor: AppColors.primaryContainer,
           onChanged: (v) {
             widget.onChanged(v);
             _validate(v);

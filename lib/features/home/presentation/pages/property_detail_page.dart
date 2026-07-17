@@ -5,6 +5,8 @@ import '../../domain/entities/property_entity.dart';
 import '../../domain/usecases/get_property_detail_usecase.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/price_formatter.dart';
+import '../../../../core/di/service_locator.dart';
+import '../../../location_bien/presentation/pages/location_duree_page.dart';
 
 class PropertyDetailPage extends StatefulWidget {
   final PropertyEntity property;
@@ -650,6 +652,19 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
       );
     }
 
+    void ouvrirTunnelLocation() {
+      final sl = ServiceLocator.instance;
+      final ctrl = sl.createLocationController();
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => LocationDureePage(
+            property: _property,
+            controller: ctrl,
+          ),
+        ),
+      );
+    }
+
     // Tous les types ont les boutons Réserver + Louer
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPad),
@@ -698,7 +713,7 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
             child: SizedBox(
               height: 52,
               child: ElevatedButton(
-                onPressed: () => showSnack('Louer'),
+                onPressed: ouvrirTunnelLocation,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,

@@ -71,6 +71,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   String? _pendingToken;
 
   /// Expose le pending_token pour que l'OtpPage puisse le récupérer
+  @override
   String? get pendingToken => _pendingToken;
 
   @override

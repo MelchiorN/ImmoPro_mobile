@@ -30,12 +30,14 @@ class _Step1InfoPageState extends State<Step1InfoPage> {
   final _descCtrl     = TextEditingController();
   int  _descLength    = 0;
   String _selectedType        = 'Appartement';
+  // ignore: prefer_final_fields
   String _selectedTransaction = 'location'; // Hardcodé à 'location' comme convenu
 
   final List<String> _propertyTypes = [
     'Appartement', 'Maison', 'Villa', 'Terrain',
     'Bureau / Commerce', 'Chambre / Studio',
   ];
+  // ignore: unused_field
   final List<String> _transactions = ['Vente', 'Location', 'Colocation'];
 
   /// Slug API correspondant au type sélectionné

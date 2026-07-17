@@ -1,4 +1,3 @@
-import 'dart:convert';
 import '../../../../core/network/api_client.dart';
 import '../models/category_schema_model.dart';
 import '../models/property_draft_model.dart';
