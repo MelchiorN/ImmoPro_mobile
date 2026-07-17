@@ -34,7 +34,7 @@ migrate_working_dir/
 /coverage/
 
 # Fichier sensible pour la notif firebase
-/lib/features/firebase_options.dart
+/lib/firebase_options.dart
 # Symbolication related
 app.*.symbols
 
