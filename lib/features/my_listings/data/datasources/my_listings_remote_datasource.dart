@@ -5,6 +5,7 @@ abstract class MyListingsRemoteDataSource {
   Future<List<ListingModel>> getMyListings();
   Future<ListingModel> getListingDetail(String id);
   Future<ListingModel> uploadMedia(String bienId, List<String> filePaths);
+  Future<ListingModel> publishListing(String id);
 }
 
 class MyListingsRemoteDataSourceImpl implements MyListingsRemoteDataSource {
@@ -44,6 +45,13 @@ class MyListingsRemoteDataSourceImpl implements MyListingsRemoteDataSource {
       files: files,
     );
 
+    final data = response['data'] as Map<String, dynamic>;
+    return ListingModel.fromJson(data);
+  }
+
+  @override
+  Future<ListingModel> publishListing(String id) async {
+    final response = await _api.postAuth('/proprietaire/biens/$id/publier');
     final data = response['data'] as Map<String, dynamic>;
     return ListingModel.fromJson(data);
   }

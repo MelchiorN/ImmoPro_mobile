@@ -17,6 +17,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../notifications/presentation/controllers/notifications_controller.dart';
 import '../../../notifications/presentation/pages/notifications_page.dart';
 import '../../../profile/presentation/pages/profile_page.dart';
+import '../../../../core/services/fcm_service.dart';
 import 'property_detail_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -56,6 +57,11 @@ class _HomePageState extends State<HomePage> {
       statusBarIconBrightness: Brightness.light,
       statusBarBrightness: Brightness.dark,
     ));
+
+    // Rafraîchir les notifications à la réception d'un push au premier plan
+    FcmService.instance.setOnMessage((_) {
+      _notificationsController.load();
+    });
 
     _controller.init();
   }

@@ -20,6 +20,7 @@ class ListingDetailPage extends StatefulWidget {
 class _ListingDetailPageState extends State<ListingDetailPage> {
   late ListingEntity _listing;
   bool _uploadingMedia = false;
+  bool _publishing = false;
 
   @override
   void initState() {
@@ -139,6 +140,11 @@ class _ListingDetailPageState extends State<ListingDetailPage> {
                                 _RejectionCard(
                                   reason: _listing.rejectionReason!,
                                 ),
+                              // Bouton publier (si statut valide)
+                              if (_listing.statut == 'valide') ...[
+                                _buildPublishButton(),
+                                const SizedBox(height: 20),
+                              ],
                               // Bouton changer photos (si statut modifiable)
                               if (_canEditPhotos) ...[
                                 _buildChangePhotosButton(),
@@ -162,6 +168,72 @@ class _ListingDetailPageState extends State<ListingDetailPage> {
         ),
       ),
     );
+  }
+
+  // ── Bouton publier ────────────────────────────────────────────────────────
+  Widget _buildPublishButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: _publishing ? null : _publishListing,
+        icon: _publishing
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : const Icon(Icons.rocket_launch_rounded, size: 20),
+        label: Text(
+          _publishing ? 'Publication...' : 'Publier l\'annonce',
+          style: const TextStyle(
+            fontFamily: 'Manrope',
+            fontWeight: FontWeight.w700,
+            fontSize: 15,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primaryContainer,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _publishListing() async {
+    setState(() => _publishing = true);
+    try {
+      final controller = ServiceLocator.instance.myListingsController;
+      final updated = await controller.publishListing(_listing.id);
+      if (updated != null && mounted) {
+        setState(() {
+          _listing = updated;
+          _publishing = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Votre bien a été publié avec succès 🎉'),
+            backgroundColor: Color(0xFF1A56A0),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _publishing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erreur lors de la publication.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   // ── Bouton changer photos ─────────────────────────────────────────────────
@@ -512,9 +584,7 @@ class _ListingDetailPageState extends State<ListingDetailPage> {
   Widget _buildInfoSection() {
     final pills = <_Pill>[];
     if (_listing.surface != null) {
-      pills.add(
-        _Pill(Icons.square_foot_outlined, '${_listing.surface!.toInt()} m²'),
-      );
+      pills.add(_Pill(Icons.square_foot_outlined, '${_listing.surface!.toInt()} m²'));
     }
     if (_listing.rooms != null) {
       pills.add(_Pill(Icons.meeting_room_outlined, '${_listing.rooms} pièces'));
@@ -522,59 +592,49 @@ class _ListingDetailPageState extends State<ListingDetailPage> {
     if (_listing.bathrooms != null) {
       pills.add(_Pill(Icons.bathtub_outlined, '${_listing.bathrooms} SDB'));
     }
-    if (pills.isEmpty) return const SizedBox.shrink();
+
+    final caracEntries = _listing.caracteristiques.entries
+        .where((e) => e.value != null && e.value.toString().isNotEmpty)
+        .toList();
+
+    if (pills.isEmpty && caracEntries.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Caractéristiques',
-          style: TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-            color: AppColors.onSurface,
-          ),
-        ),
+        const Text('Caractéristiques', style: TextStyle(
+          fontFamily: 'Manrope', fontSize: 17,
+          fontWeight: FontWeight.w700, color: AppColors.onSurface)),
         const SizedBox(height: 10),
-        Wrap(
-          spacing: 10,
-          runSpacing: 8,
-          children: pills
-              .map(
-                (p) => Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 9,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.primary.withValues(alpha: 0.2),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(p.icon, size: 16, color: AppColors.primary),
-                      const SizedBox(width: 6),
-                      Text(
-                        p.label,
-                        style: const TextStyle(
-                          fontFamily: 'HankenGrotesk',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-              .toList(),
-        ),
+        // Champs socles (surface, pièces, SDB)
+        if (pills.isNotEmpty)
+          Wrap(
+            spacing: 10, runSpacing: 8,
+            children: pills.map((p) => _buildPill(p.icon, p.label)).toList(),
+          ),
+        if (pills.isNotEmpty && caracEntries.isNotEmpty)
+          const SizedBox(height: 12),
+        // Champs dynamiques (caracteristiques JSON)
+        if (caracEntries.isNotEmpty)
+          _CaracteristiquesGrid(entries: caracEntries),
       ],
+    );
+  }
+
+  Widget _buildPill(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 16, color: AppColors.primary),
+        const SizedBox(width: 6),
+        Text(label, style: const TextStyle(fontFamily: 'HankenGrotesk',
+            fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
+      ]),
     );
   }
 
@@ -640,6 +700,105 @@ class _Pill {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Grille des caractéristiques dynamiques
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CaracteristiquesGrid extends StatelessWidget {
+  final List<MapEntry<String, dynamic>> entries;
+  const _CaracteristiquesGrid({required this.entries});
+
+  String _formatLabel(String key) {
+    return key
+        .replaceAll('_', ' ')
+        .split(' ')
+        .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+  }
+
+  String _formatValue(dynamic value) {
+    if (value == null) return '—';
+    if (value is bool) return value ? 'Oui' : 'Non';
+    final s = value.toString();
+    // Humaniser les slugs enum : bon_etat → Bon état
+    return s
+        .replaceAll('_', ' ')
+        .split(' ')
+        .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+  }
+
+  IconData _iconForKey(String key) {
+    if (key.contains('chambre'))      return Icons.bed_rounded;
+    if (key.contains('sdb') || key.contains('salle')) return Icons.bathtub_outlined;
+    if (key.contains('salon'))        return Icons.chair_rounded;
+    if (key.contains('surface') || key.contains('superficie')) return Icons.square_foot_outlined;
+    if (key.contains('etage'))        return Icons.layers_rounded;
+    if (key.contains('garage'))       return Icons.garage_rounded;
+    if (key.contains('parking'))      return Icons.local_parking_rounded;
+    if (key.contains('piscine'))      return Icons.pool_rounded;
+    if (key.contains('jardin'))       return Icons.park_rounded;
+    if (key.contains('meuble'))       return Icons.weekend_rounded;
+    if (key.contains('eau'))          return Icons.water_drop_rounded;
+    if (key.contains('electricite') || key.contains('électricité')) return Icons.bolt_rounded;
+    if (key.contains('internet') || key.contains('fibre')) return Icons.wifi_rounded;
+    if (key.contains('camera') || key.contains('securite')) return Icons.security_rounded;
+    if (key.contains('climatisation')) return Icons.ac_unit_rounded;
+    if (key.contains('etat'))         return Icons.star_outline_rounded;
+    if (key.contains('ascenseur'))    return Icons.elevator_rounded;
+    if (key.contains('vitrine'))      return Icons.store_outlined;
+    if (key.contains('terrain') || key.contains('usage')) return Icons.landscape_rounded;
+    if (key.contains('type'))         return Icons.category_rounded;
+    return Icons.info_outline_rounded;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: entries.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 2.8,
+      ),
+      itemBuilder: (context, i) {
+        final entry = entries[i];
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.12)),
+          ),
+          child: Row(children: [
+            Icon(_iconForKey(entry.key), size: 16, color: AppColors.primaryContainer),
+            const SizedBox(width: 8),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(_formatLabel(entry.key),
+                  style: const TextStyle(fontFamily: 'HankenGrotesk', fontSize: 9,
+                      fontWeight: FontWeight.w500, color: AppColors.onSurfaceVariant,
+                      letterSpacing: 0.3),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 1),
+                Text(_formatValue(entry.value),
+                  style: const TextStyle(fontFamily: 'HankenGrotesk', fontSize: 12,
+                      fontWeight: FontWeight.w700, color: AppColors.primary),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              ],
+            )),
+          ]),
+        );
+      },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Tracker de statut visuel (timeline)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -650,7 +809,7 @@ class _StatusTracker extends StatelessWidget {
   static const _steps = [
     _StepDef('Soumis', 'en_attente', Icons.upload_rounded),
     _StepDef('Vérification', 'en_verification', Icons.search_rounded),
-    _StepDef('Visite', 'visite', Icons.calendar_month_outlined),
+    _StepDef('Approuvé', 'valide', Icons.check_circle_outline_rounded),
     _StepDef('Publié', 'publie', Icons.verified_rounded),
   ];
 

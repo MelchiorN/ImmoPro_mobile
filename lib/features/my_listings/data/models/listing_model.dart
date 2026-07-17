@@ -20,6 +20,7 @@ class ListingModel extends ListingEntity {
     super.createdAt,
     super.rejectionReason,
     super.medias,
+    super.caracteristiques,
   });
 
   factory ListingModel.fromJson(Map<String, dynamic> json) {
@@ -66,6 +67,7 @@ class ListingModel extends ListingEntity {
       createdAt:       json['created_at']       as String?,
       rejectionReason: rejectionReason,
       medias:          medias,
+      caracteristiques: (json['caracteristiques'] as Map<String, dynamic>?) ?? {},
     );
   }
 }

@@ -765,6 +765,12 @@ class _StatusBadge extends StatelessWidget {
           bg: const Color(0xFFFFDAD6),
           fg: const Color(0xFF93000A),
         );
+      case 'valide':
+        return _BadgeCfg(
+          label: 'À Publier',
+          bg: const Color(0xFFFDF6B2),
+          fg: const Color(0xFF723B13),
+        );
       case 'archive':
         return _BadgeCfg(
           label: 'Archivé',

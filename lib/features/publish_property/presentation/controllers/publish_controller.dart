@@ -1,24 +1,30 @@
 import 'package:flutter/foundation.dart';
 import '../../../../core/network/api_client.dart';
+import '../../data/datasources/publish_remote_datasource.dart';
+import '../../domain/entities/category_schema_entity.dart';
 import '../../domain/entities/property_draft_entity.dart';
 import '../../domain/usecases/submit_property_usecase.dart';
 
 enum PublishStatus { idle, loading, success, error }
+enum SchemaStatus  { idle, loading, loaded, error }
 
-/// Controller du flow "Publier un bien".
-/// Gère le brouillon à travers les 4 étapes et la soumission finale.
 class PublishController extends ChangeNotifier {
-  final SubmitPropertyUseCase _submitUseCase;
+  final SubmitPropertyUseCase      _submitUseCase;
+  final PublishRemoteDataSource    _dataSource;
 
-  PublishController(this._submitUseCase);
-
-  // ── Étape courante (0 à 3) ──────────────────────────────────────────────
-  int _currentStep = 0;
-  int get currentStep => _currentStep;
+  PublishController(this._submitUseCase, [PublishRemoteDataSource? dataSource])
+      : _dataSource = dataSource ?? PublishRemoteDataSourceImpl();
 
   // ── Brouillon ───────────────────────────────────────────────────────────
   PropertyDraftEntity _draft = const PropertyDraftEntity();
   PropertyDraftEntity get draft => _draft;
+
+  // ── Schéma dynamique de la catégorie ───────────────────────────────────
+  CategorySchemaEntity? _schema;
+  CategorySchemaEntity? get schema => _schema;
+
+  SchemaStatus _schemaStatus = SchemaStatus.idle;
+  SchemaStatus get schemaStatus => _schemaStatus;
 
   // ── État de soumission ──────────────────────────────────────────────────
   PublishStatus _status = PublishStatus.idle;
@@ -30,25 +36,21 @@ class PublishController extends ChangeNotifier {
   String? _submittedPropertyId;
   String? get submittedPropertyId => _submittedPropertyId;
 
-  // ── Navigation entre étapes ──────────────────────────────────────────────
+  // ── Chargement du schéma de catégorie ───────────────────────────────────
 
-  void goToStep(int step) {
-    _currentStep = step.clamp(0, 3);
+  Future<void> loadCategorySchema(String slug) async {
+    if (_schemaStatus == SchemaStatus.loading) return;
+    _schemaStatus = SchemaStatus.loading;
     notifyListeners();
-  }
-
-  void nextStep() {
-    if (_currentStep < 3) {
-      _currentStep++;
-      notifyListeners();
+    try {
+      _schema = await _dataSource.getCategorySchema(slug);
+      _schemaStatus = SchemaStatus.loaded;
+      // Réinitialiser les caracteristiques si le type change
+      _draft = _draft.copyWith(caracteristiques: {});
+    } catch (_) {
+      _schemaStatus = SchemaStatus.error;
     }
-  }
-
-  void previousStep() {
-    if (_currentStep > 0) {
-      _currentStep--;
-      notifyListeners();
-    }
+    notifyListeners();
   }
 
   // ── Mise à jour du brouillon ─────────────────────────────────────────────
@@ -69,7 +71,7 @@ class PublishController extends ChangeNotifier {
   }
 
   void updatePrice(String raw) {
-    final value = double.tryParse(raw.replaceAll(' ', ''));
+    final value = double.tryParse(raw.replaceAll(' ', '').replaceAll(',', '.'));
     if (value != null) {
       _draft = _draft.copyWith(price: value);
       notifyListeners();
@@ -77,9 +79,17 @@ class PublishController extends ChangeNotifier {
   }
 
   void updateSurface(String raw) {
-    final value = double.tryParse(raw.replaceAll(' ', ''));
+    final value = double.tryParse(raw.replaceAll(' ', '').replaceAll(',', '.'));
     if (value != null) {
       _draft = _draft.copyWith(surface: value);
+      notifyListeners();
+    }
+  }
+
+  void updateSuperficie(String raw) {
+    final value = double.tryParse(raw.replaceAll(' ', '').replaceAll(',', '.'));
+    if (value != null) {
+      _draft = _draft.copyWith(superficie: value);
       notifyListeners();
     }
   }
@@ -113,26 +123,34 @@ class PublishController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateLocation({
-    required String address,
-    required double latitude,
-    required double longitude,
-  }) {
-    _draft = _draft.copyWith(
-      address: address,
-      latitude: latitude,
-      longitude: longitude,
-    );
+  void updateAddress(String address) {
+    _draft = _draft.copyWith(address: address);
     notifyListeners();
+  }
+
+  void updateCoordinates(double lat, double lng) {
+    _draft = _draft.copyWith(latitude: lat, longitude: lng);
+    notifyListeners();
+  }
+
+  // ── Caractéristiques dynamiques ──────────────────────────────────────────
+
+  void setCaracteristique(String nomChamp, dynamic value) {
+    final updated = Map<String, dynamic>.from(_draft.caracteristiques)
+      ..[nomChamp] = value;
+    _draft = _draft.copyWith(caracteristiques: updated);
+    notifyListeners();
+  }
+
+  dynamic getCaracteristique(String nomChamp) {
+    return _draft.caracteristiques[nomChamp];
   }
 
   // ── Médias ───────────────────────────────────────────────────────────────
 
   void addMediaPath(String path) {
     if (_draft.mediaPaths.length < 10) {
-      _draft = _draft.copyWith(
-        mediaPaths: [..._draft.mediaPaths, path],
-      );
+      _draft = _draft.copyWith(mediaPaths: [..._draft.mediaPaths, path]);
       notifyListeners();
     }
   }
@@ -145,18 +163,30 @@ class PublishController extends ChangeNotifier {
 
   // ── Documents ────────────────────────────────────────────────────────────
 
-  void setTitleDeed(String? path) {
-    _draft = _draft.copyWith(titleDeedPath: path);
+  void setIdDocument(String? path) {
+    if (path == null) {
+      _draft = _draft.copyWith(clearIdDocument: true);
+    } else {
+      _draft = _draft.copyWith(idDocumentPath: path);
+    }
     notifyListeners();
   }
 
-  void setIdDocument(String? path) {
-    _draft = _draft.copyWith(idDocumentPath: path);
+  void setJustificatifPropriete(String? path) {
+    if (path == null) {
+      _draft = _draft.copyWith(clearJustificatif: true);
+    } else {
+      _draft = _draft.copyWith(justificatifProprietePath: path);
+    }
     notifyListeners();
   }
 
   void setCadastralPlan(String? path) {
-    _draft = _draft.copyWith(cadastralPlanPath: path);
+    if (path == null) {
+      _draft = _draft.copyWith(clearCadastral: true);
+    } else {
+      _draft = _draft.copyWith(cadastralPlanPath: path);
+    }
     notifyListeners();
   }
 
@@ -186,7 +216,6 @@ class PublishController extends ChangeNotifier {
       _status = PublishStatus.success;
     } on ApiException catch (e) {
       _status = PublishStatus.error;
-      // Erreurs de validation Laravel (422)
       if (e.statusCode == 422 && e.errors != null) {
         final msgs = e.errors!.values
             .expand((v) => v is List ? v : [v])
@@ -198,11 +227,11 @@ class PublishController extends ChangeNotifier {
       } else {
         _errorMessage = e.message;
       }
-    } catch (e) {
+    } catch (_) {
       _status = PublishStatus.error;
-      _errorMessage = 'Échec de la soumission. Vérifiez votre connexion et réessayez.';
+      _errorMessage =
+          'Échec de la soumission. Vérifiez votre connexion et réessayez.';
     }
-
     notifyListeners();
   }
 

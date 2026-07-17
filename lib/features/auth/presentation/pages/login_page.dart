@@ -3,6 +3,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/di/service_locator.dart';
 import '../controllers/login_controller.dart';
 import 'register_page.dart';
+import '../../../../core/services/fcm_service.dart';
 
 // ─────────────────────────────────────────────
 // Page principale
@@ -45,6 +46,7 @@ class _LoginPageState extends State<LoginPage> {
       )
           .then((_) {
         if (_controller.status == LoginStatus.success && mounted) {
+          FcmService.instance.init();
           Navigator.of(context).pushNamedAndRemoveUntil(
             '/home',
             (route) => false,

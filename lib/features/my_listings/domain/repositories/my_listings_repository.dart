@@ -9,4 +9,7 @@ abstract class MyListingsRepository {
 
   /// Remplace les photos d'un bien par les nouveaux fichiers fournis.
   Future<ListingEntity> uploadMedia(String bienId, List<String> filePaths);
+
+  /// Publie un bien approuvé.
+  Future<ListingEntity> publishListing(String id);
 }

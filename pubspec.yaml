@@ -74,6 +74,9 @@ dependencies:
 
   # Dotted border pour zones de drop
   dotted_border: ^2.1.0
+  firebase_messaging: ^16.4.3
+  firebase_core: ^4.12.1
+  flutter_local_notifications: ^20.1.0
 
 dev_dependencies:
   flutter_test:

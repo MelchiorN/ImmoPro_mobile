@@ -6,6 +6,7 @@ class PublishBottomBar extends StatelessWidget {
   final bool showBack;
   final bool isLoading;
   final String nextLabel;
+  final int totalSteps;
   final VoidCallback? onBack;
   final VoidCallback? onNext;
 
@@ -14,6 +15,7 @@ class PublishBottomBar extends StatelessWidget {
     this.showBack = true,
     this.isLoading = false,
     this.nextLabel = 'Suivant',
+    this.totalSteps = 4,
     this.onBack,
     this.onNext,
   });

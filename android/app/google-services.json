@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "350748893934",
+    "project_id": "immopro-8a8e8",
+    "storage_bucket": "immopro-8a8e8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:350748893934:android:4e8f8bafc1e0d535d009ff",
+        "android_client_info": {
+          "package_name": "com.example.immopro_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAXoDckfEDTsljbnUDulOmWNPa4f7eqS0g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

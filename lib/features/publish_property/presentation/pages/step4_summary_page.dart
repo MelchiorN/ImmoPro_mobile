@@ -61,7 +61,8 @@ class Step4SummaryPage extends StatelessWidget {
         backgroundColor: AppColors.background,
         appBar: PublishAppBar(
           title: 'Récapitulatif',
-          currentStep: 3,
+          currentStep: 2,
+          totalSteps: 3,
           onBack: () => Navigator.of(context).pop(),
         ),
         body: ListenableBuilder(
@@ -125,6 +126,23 @@ class Step4SummaryPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
 
+                  // ── Section Caractéristiques dynamiques ────────────────
+                  if (draft.caracteristiques.isNotEmpty)
+                    _SummarySection(
+                      icon: Icons.tune_rounded,
+                      title: 'Caractéristiques',
+                      onEdit: null,
+                      child: Wrap(
+                        spacing: 12,
+                        runSpacing: 10,
+                        children: draft.caracteristiques.entries
+                            .where((e) => e.value != null)
+                            .map((e) => _CaracPill(nomChamp: e.key, value: e.value))
+                            .toList(),
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+
                   // ── Section Médias ─────────────────────────────────
                   if (draft.mediaPaths.isNotEmpty)
                     _SummarySection(
@@ -142,18 +160,18 @@ class Step4SummaryPage extends StatelessWidget {
                     onEdit: () => Navigator.of(context).pop(),
                     child: Column(
                       children: [
-                        if (draft.titleDeedPath != null)
-                          _DocItem(
-                            icon: Icons.picture_as_pdf_rounded,
-                            label: 'Titre foncier',
-                            path: draft.titleDeedPath!,
-                          ),
-                        if (draft.idDocumentPath != null) ...[
-                          const SizedBox(height: 8),
+                        if (draft.idDocumentPath != null)
                           _DocItem(
                             icon: Icons.badge_outlined,
                             label: "Pièce d'identité",
                             path: draft.idDocumentPath!,
+                          ),
+                        if (draft.justificatifProprietePath != null) ...[
+                          const SizedBox(height: 8),
+                          _DocItem(
+                            icon: Icons.home_work_outlined,
+                            label: 'Justificatif de propriété',
+                            path: draft.justificatifProprietePath!,
                           ),
                         ],
                         if (draft.cadastralPlanPath != null) ...[
@@ -163,6 +181,17 @@ class Step4SummaryPage extends StatelessWidget {
                             label: 'Plan cadastral',
                             path: draft.cadastralPlanPath!,
                           ),
+                        ],
+                        if (draft.otherDocumentPaths.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          ...draft.otherDocumentPaths.map((p) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: _DocItem(
+                              icon: Icons.insert_drive_file_outlined,
+                              label: 'Autre document',
+                              path: p,
+                            ),
+                          )),
                         ],
                       ],
                     ),
@@ -799,6 +828,55 @@ class _ProcessingCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Affiche une paire clé/valeur de caractéristique dynamique.
+class _CaracPill extends StatelessWidget {
+  final String nomChamp;
+  final dynamic value;
+  const _CaracPill({required this.nomChamp, required this.value});
+
+  String get _label {
+    // Convertit nom_champ → Nom champ lisible
+    return nomChamp
+        .replaceAll('_', ' ')
+        .split(' ')
+        .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+  }
+
+  String get _displayValue {
+    if (value == null) return '—';
+    if (value is bool) return value ? 'Oui' : 'Non';
+    final s = value.toString();
+    // Slugs enum → lisibles
+    return s.replaceAll('_', ' ')
+        .split(' ')
+        .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(_label.toUpperCase(),
+          style: const TextStyle(fontFamily: 'HankenGrotesk', fontSize: 9,
+              fontWeight: FontWeight.w600, color: AppColors.onSurfaceVariant,
+              letterSpacing: 0.5)),
+        const SizedBox(height: 2),
+        Text(_displayValue,
+          style: const TextStyle(fontFamily: 'HankenGrotesk', fontSize: 13,
+              fontWeight: FontWeight.w600, color: AppColors.primary)),
+      ]),
     );
   }
 }

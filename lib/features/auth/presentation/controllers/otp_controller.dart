@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/usecases/verify_otp_usecase.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/services/fcm_service.dart';
 
 enum OtpStatus { idle, loading, success, failure }
 

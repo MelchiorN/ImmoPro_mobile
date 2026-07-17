@@ -96,6 +96,22 @@ class MyListingsController extends ChangeNotifier {
     }
   }
 
+  /// Publie un bien approuvé et met à jour la liste locale.
+  Future<ListingEntity?> publishListing(String bienId) async {
+    if (_repository == null) return null;
+    try {
+      final updated = await _repository!.publishListing(bienId);
+      // Met à jour le listing local
+      _listings = _listings
+          .map((l) => l.id == bienId ? updated : l)
+          .toList();
+      notifyListeners();
+      return updated;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   @override
   void dispose() {
     _refreshTimer?.cancel();

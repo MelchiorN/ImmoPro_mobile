@@ -70,7 +70,7 @@ class ServiceLocator {
   /// Le controller est stateful (brouillon multi-étapes) donc ne doit pas
   /// être partagé — chaque flow de publication démarre avec un controller frais.
   PublishController createPublishController() =>
-      PublishController(submitPropertyUseCase);
+      PublishController(submitPropertyUseCase, publishRemoteDataSource);
 
   // ── Profile ───────────────────────────────────────────────────────────────
   late final ProfileRemoteDataSource profileRemoteDataSource =

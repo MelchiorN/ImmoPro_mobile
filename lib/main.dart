@@ -8,9 +8,19 @@ import 'features/auth/presentation/pages/register_page.dart';
 import 'features/auth/presentation/pages/otp_page.dart';
 import 'features/home/presentation/pages/home_page.dart';
 import 'features/publish_property/presentation/pages/step1_info_page.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'core/services/fcm_service.dart';
+import 'firebase_options.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+   options: DefaultFirebaseOptions.currentPlatform,
+  );
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
 
   // Portrait uniquement
   SystemChrome.setPreferredOrientations([

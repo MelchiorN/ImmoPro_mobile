@@ -7,9 +7,9 @@ class ListingEntity {
   final String? description;
   final double price;
   final String location;
-  final String typeBien;        // 'appartement' | 'villa' | etc.
-  final String typeTransaction; // 'vente' | 'location' | 'colocation'
-  final String statut;          // 'en_attente' | 'en_verification' | 'publie' | 'rejete' | 'archive'
+  final String typeBien;
+  final String typeTransaction;
+  final String statut;
   final String? imageUrl;
   final double? surface;
   final int? rooms;
@@ -18,6 +18,8 @@ class ListingEntity {
   final String? createdAt;
   final String? rejectionReason;
   final List<PropertyMedia> medias;
+  /// Champs dynamiques de la catégorie, ex: {'nb_chambres': 3, 'etat_bien': 'neuf'}
+  final Map<String, dynamic> caracteristiques;
 
   const ListingEntity({
     required this.id,
@@ -36,5 +38,6 @@ class ListingEntity {
     this.createdAt,
     this.rejectionReason,
     this.medias = const [],
+    this.caracteristiques = const {},
   });
 }

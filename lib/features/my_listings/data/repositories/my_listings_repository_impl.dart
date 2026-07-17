@@ -16,4 +16,8 @@ class MyListingsRepositoryImpl implements MyListingsRepository {
   @override
   Future<ListingEntity> uploadMedia(String bienId, List<String> filePaths) =>
       _remote.uploadMedia(bienId, filePaths);
+
+  @override
+  Future<ListingEntity> publishListing(String id) =>
+      _remote.publishListing(id);
 }

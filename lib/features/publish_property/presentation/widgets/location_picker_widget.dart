@@ -12,14 +12,12 @@ import 'package:geocoding/geocoding.dart';
 ///   - Saisie directe de coordonnées latitude,longitude
 ///   - Tap sur la carte pour repositionner le pin
 class LocationPickerWidget extends StatefulWidget {
-  final String? initialAddress;
   final double? initialLatitude;
   final double? initialLongitude;
-  final void Function(String address, double lat, double lng) onLocationChanged;
+  final void Function(double lat, double lng) onLocationChanged;
 
   const LocationPickerWidget({
     super.key,
-    this.initialAddress,
     this.initialLatitude,
     this.initialLongitude,
     required this.onLocationChanged,
@@ -30,33 +28,32 @@ class LocationPickerWidget extends StatefulWidget {
 }
 
 class _LocationPickerWidgetState extends State<LocationPickerWidget> {
-  late final TextEditingController _addressController;
   late final MapController _mapController;
+  late final TextEditingController _coordController;
 
   // Abidjan par défaut
   LatLng _pinPosition = const LatLng(5.3599, -4.0083);
   bool _hasPin = false;
 
   bool _isLocating = false;
-  bool _isGeocoding = false;
   String? _locationError;
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
-    _addressController =
-        TextEditingController(text: widget.initialAddress ?? '');
+    _coordController = TextEditingController();
     if (widget.initialLatitude != null && widget.initialLongitude != null) {
       _pinPosition =
           LatLng(widget.initialLatitude!, widget.initialLongitude!);
       _hasPin = true;
+      _coordController.text = '${widget.initialLatitude}, ${widget.initialLongitude}';
     }
   }
 
   @override
   void dispose() {
-    _addressController.dispose();
+    _coordController.dispose();
     _mapController.dispose();
     super.dispose();
   }
@@ -101,7 +98,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
       );
 
       final pos = LatLng(position.latitude, position.longitude);
-      await _reverseGeocode(pos);
+      await _placePin(pos);
     } catch (e) {
       setState(
           () => _locationError = 'Impossible d\'obtenir la position. Réessayez.');
@@ -110,102 +107,17 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
     }
   }
 
-  // ── Reverse geocoding (coordonnées → adresse) ────────────────────────────
+  // ── Placement de pin manuel (reverse geocoding supprimé pour simplifier) ──
 
-  Future<void> _reverseGeocode(LatLng pos) async {
-    if (mounted) setState(() => _isGeocoding = true);
-    try {
-      final placemarks =
-          await placemarkFromCoordinates(pos.latitude, pos.longitude);
-      String address;
-      if (placemarks.isNotEmpty) {
-        final p = placemarks.first;
-        final parts = <String>[
-          if (p.street != null && p.street!.isNotEmpty) p.street!,
-          if (p.subLocality != null && p.subLocality!.isNotEmpty) p.subLocality!,
-          if (p.locality != null && p.locality!.isNotEmpty) p.locality!,
-          if (p.country != null && p.country!.isNotEmpty) p.country!,
-        ];
-        address = parts.join(', ');
-      } else {
-        address =
-            '${pos.latitude.toStringAsFixed(6)}, ${pos.longitude.toStringAsFixed(6)}';
-      }
-      if (mounted) {
-        _addressController.text = address;
-        setState(() {
-          _pinPosition = pos;
-          _hasPin = true;
-        });
-        _mapController.move(pos, 15);
-        widget.onLocationChanged(address, pos.latitude, pos.longitude);
-      }
-    } catch (_) {
-      // Géocoding échoué — on garde les coordonnées brutes
-      final raw =
-          '${pos.latitude.toStringAsFixed(6)}, ${pos.longitude.toStringAsFixed(6)}';
-      if (mounted) {
-        _addressController.text = raw;
-        setState(() {
-          _pinPosition = pos;
-          _hasPin = true;
-        });
-        _mapController.move(pos, 15);
-        widget.onLocationChanged(raw, pos.latitude, pos.longitude);
-      }
-    } finally {
-      if (mounted) setState(() => _isGeocoding = false);
-    }
-  }
-
-  // ── Forward geocoding (adresse/coords → coordonnées) ────────────────────
-
-  Future<void> _searchAddress(String query) async {
-    if (query.trim().isEmpty) return;
-    setState(() {
-      _isGeocoding = true;
-      _locationError = null;
-    });
-
-    // Détection de format "lat, lng"
-    final coordRegex = RegExp(
-        r'^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$');
-    final match = coordRegex.firstMatch(query.trim());
-    if (match != null) {
-      final lat = double.tryParse(match.group(1)!);
-      final lng = double.tryParse(match.group(2)!);
-      if (lat != null && lng != null) {
-        await _reverseGeocode(LatLng(lat, lng));
-        return;
-      }
-    }
-
-    try {
-      final locations = await locationFromAddress(query.trim());
-      if (locations.isNotEmpty) {
-        final loc = locations.first;
-        final pos = LatLng(loc.latitude, loc.longitude);
-        if (mounted) {
-          setState(() {
-            _pinPosition = pos;
-            _hasPin = true;
-          });
-          _mapController.move(pos, 15);
-          widget.onLocationChanged(query.trim(), loc.latitude, loc.longitude);
-        }
-      } else {
-        if (mounted) {
-          setState(() =>
-              _locationError = 'Adresse introuvable. Essayez d\'être plus précis.');
-        }
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() =>
-            _locationError = 'Erreur de recherche. Vérifiez l\'adresse saisie.');
-      }
-    } finally {
-      if (mounted) setState(() => _isGeocoding = false);
+  Future<void> _placePin(LatLng pos) async {
+    if (mounted) {
+      setState(() {
+        _pinPosition = pos;
+        _hasPin = true;
+        _coordController.text = '${pos.latitude.toStringAsFixed(6)}, ${pos.longitude.toStringAsFixed(6)}';
+      });
+      _mapController.move(pos, 15);
+      widget.onLocationChanged(pos.latitude, pos.longitude);
     }
   }
 
@@ -218,7 +130,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
         const Padding(
           padding: EdgeInsets.only(left: 2, bottom: 8),
           child: Text(
-            'ADRESSE / LOCALISATION',
+            'LOCALISATION SUR LA CARTE (OPTIONNEL)',
             style: TextStyle(
               fontFamily: 'HankenGrotesk',
               fontSize: 11,
@@ -229,40 +141,24 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
           ),
         ),
 
-        // Champ de saisie
+        // Champ Coordonnées
         TextFormField(
-          controller: _addressController,
+          controller: _coordController,
+          readOnly: true,
           style: const TextStyle(
             fontFamily: 'HankenGrotesk',
             fontSize: 15,
             color: Color(0xFF191C1E),
           ),
           decoration: InputDecoration(
-            hintText:
-                'Quartier, rue  —  ou  —  5.3599, -4.0083',
+            hintText: 'Coordonnées (Map ou GPS)',
             hintStyle: const TextStyle(
               color: Color(0xFFC2C6D3),
               fontFamily: 'HankenGrotesk',
-              fontSize: 13,
+              fontSize: 14,
             ),
-            prefixIcon: const Icon(Icons.location_on_outlined,
-                color: Color(0xFF003E7E), size: 22),
-            suffixIcon: _isGeocoding
-                ? const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  )
-                : IconButton(
-                    tooltip: 'Rechercher',
-                    icon: const Icon(Icons.search_rounded,
-                        color: Color(0xFF003E7E)),
-                    onPressed: () =>
-                        _searchAddress(_addressController.text),
-                  ),
+            prefixIcon: const Icon(Icons.pin_drop_rounded,
+                color: Color(0xFF003E7E), size: 20),
             filled: true,
             fillColor: const Color(0xFFF2F4F6),
             contentPadding:
@@ -277,12 +173,9 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide:
-                  const BorderSide(color: Color(0xFF003E7E), width: 1.5),
+              borderSide: const BorderSide(color: Color(0xFF003E7E)),
             ),
           ),
-          textInputAction: TextInputAction.search,
-          onFieldSubmitted: _searchAddress,
         ),
 
         const SizedBox(height: 10),
@@ -365,7 +258,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
               options: MapOptions(
                 initialCenter: _pinPosition,
                 initialZoom: 14,
-                onTap: (_, point) => _reverseGeocode(point),
+                onTap: (_, point) => _placePin(point),
               ),
               children: [
                 TileLayer(
@@ -400,19 +293,6 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
           ),
         ),
 
-        // Coordonnées
-        if (_hasPin)
-          Padding(
-            padding: const EdgeInsets.only(top: 6, left: 4),
-            child: Text(
-              '${_pinPosition.latitude.toStringAsFixed(6)}, ${_pinPosition.longitude.toStringAsFixed(6)}',
-              style: const TextStyle(
-                fontFamily: 'HankenGrotesk',
-                fontSize: 11,
-                color: Color(0xFF424751),
-              ),
-            ),
-          ),
       ],
     );
   }

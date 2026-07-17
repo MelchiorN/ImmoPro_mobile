@@ -1,20 +1,33 @@
+import 'dart:convert';
 import '../../../../core/network/api_client.dart';
+import '../models/category_schema_model.dart';
 import '../models/property_draft_model.dart';
 
 abstract class PublishRemoteDataSource {
+  Future<CategorySchemaModel> getCategorySchema(String slug);
   Future<String> submitProperty(PropertyDraftModel model);
 }
 
-/// Implémentation réelle — appel multipart vers POST /api/biens.
 class PublishRemoteDataSourceImpl implements PublishRemoteDataSource {
   final ApiClient _apiClient;
 
   PublishRemoteDataSourceImpl([ApiClient? client])
       : _apiClient = client ?? ApiClient.instance;
 
+  // ── GET /api/categories/{slug}/schema ─────────────────────────────────────
+
+  @override
+  Future<CategorySchemaModel> getCategorySchema(String slug) async {
+    final response = await _apiClient.getPublic('/categories/$slug/schema');
+    final data = response['data'] as Map<String, dynamic>;
+    return CategorySchemaModel.fromJson(data);
+  }
+
+  // ── POST /api/biens (multipart) ────────────────────────────────────────────
+
   @override
   Future<String> submitProperty(PropertyDraftModel model) async {
-    // ── Champs texte ──────────────────────────────────────────────────────────
+    // ── Champs texte (socle) ──────────────────────────────────────────────
     final fields = <String, String>{
       'type_bien':        _normalizeTypeBien(model.propertyType ?? ''),
       'type_transaction': _normalizeTypeTransaction(model.transactionType ?? ''),
@@ -28,103 +41,102 @@ class PublishRemoteDataSourceImpl implements PublishRemoteDataSource {
     if (model.surface != null) {
       fields['surface'] = model.surface!.toStringAsFixed(2);
     }
-
+    if (model.superficie != null) {
+      fields['superficie'] = model.superficie!.toStringAsFixed(2);
+    }
     if ((model.description ?? '').isNotEmpty) {
       fields['description'] = model.description!;
     }
 
-    // Pièces/SDB uniquement si le type de bien les supporte
-    const typesSansChambre = {'terrain'};
-    final typeNormalise = _normalizeTypeBien(model.propertyType ?? '');
-    if (!typesSansChambre.contains(typeNormalise)) {
+    // nb_pieces et nb_salles_bain uniquement pour les types qui en ont
+    const typesSansChambre = {'terrain', 'bureau_commerce', 'chambre_studio'};
+    final typeNorm = _normalizeTypeBien(model.propertyType ?? '');
+    if (!typesSansChambre.contains(typeNorm)) {
       fields['nb_pieces']      = model.rooms.toString();
       fields['nb_salles_bain'] = model.bathrooms.toString();
     }
 
-    // ── Fichiers ──────────────────────────────────────────────────────────────
+    // ── Caractéristiques dynamiques ───────────────────────────────────────
+    // On envoie chaque clé comme caracteristiques[nom_champ]=valeur
+    if (model.caracteristiques.isNotEmpty) {
+      model.caracteristiques.forEach((key, value) {
+        if (value != null) {
+          fields['caracteristiques[$key]'] = value.toString();
+        }
+      });
+    }
+
+    // ── Fichiers ──────────────────────────────────────────────────────────
     final files = <MultipartFileEntry>[];
 
     // Médias (photos + vidéos)
-    for (int i = 0; i < model.mediaPaths.length; i++) {
-      files.add(MultipartFileEntry(
-        fieldName: 'medias[]',
-        filePath: model.mediaPaths[i],
-      ));
+    for (final path in model.mediaPaths) {
+      files.add(MultipartFileEntry(fieldName: 'medias[]', filePath: path));
     }
 
     // Documents
-    if (model.titleDeedPath != null) {
-      files.add(MultipartFileEntry(
-        fieldName: 'documents[titre_foncier]',
-        filePath: model.titleDeedPath!,
-      ));
-    }
     if (model.idDocumentPath != null) {
       files.add(MultipartFileEntry(
         fieldName: 'documents[piece_identite]',
-        filePath: model.idDocumentPath!,
+        filePath:  model.idDocumentPath!,
+      ));
+    }
+    if (model.justificatifProprietePath != null) {
+      files.add(MultipartFileEntry(
+        fieldName: 'documents[justificatif_propriete]',
+        filePath:  model.justificatifProprietePath!,
       ));
     }
     if (model.cadastralPlanPath != null) {
       files.add(MultipartFileEntry(
         fieldName: 'documents[plan_cadastral]',
-        filePath: model.cadastralPlanPath!,
+        filePath:  model.cadastralPlanPath!,
       ));
     }
-
-    // Autres documents libres
     for (int i = 0; i < model.otherDocumentPaths.length; i++) {
       files.add(MultipartFileEntry(
         fieldName: 'documents[autres][$i]',
-        filePath: model.otherDocumentPaths[i],
+        filePath:  model.otherDocumentPaths[i],
       ));
     }
 
-    // ── Appel API ─────────────────────────────────────────────────────────────
+    // ── Appel API ─────────────────────────────────────────────────────────
     final response = await _apiClient.postMultipart(
       '/biens',
       fields: fields,
-      files: files,
+      files:  files,
     );
 
-    // Le backend retourne { "success": true, "data": { "id": "uuid", ... } }
     final data = response['data'] as Map<String, dynamic>?;
     return data?['id'] as String? ?? '';
   }
 
-  // ── Helpers de normalisation ─────────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
-  /// Convertit le type de bien affiché en UI vers la valeur enum backend.
-  String _normalizeTypeBien(String uiValue) {
-    switch (uiValue.trim().toLowerCase()) {
-      case 'appartement':
-        return 'appartement';
-      case 'maison':
-        return 'maison';
-      case 'villa':
-        return 'villa';
-      case 'terrain':
-        return 'terrain';
+  String _normalizeTypeBien(String v) {
+    switch (v.trim().toLowerCase()) {
+      case 'appartement':      return 'appartement';
+      case 'maison':           return 'maison';
+      case 'villa':            return 'villa';
+      case 'terrain':          return 'terrain';
       case 'bureau / commerce':
       case 'bureau/commerce':
-      case 'bureau_commerce':
-        return 'bureau_commerce';
+      case 'bureau_commerce':  return 'bureau_commerce';
+      case 'chambre / studio':
+      case 'chambre_studio':   return 'chambre_studio';
       default:
-        return uiValue.toLowerCase().replaceAll(' / ', '_').replaceAll(' ', '_');
+        return v.toLowerCase()
+            .replaceAll(' / ', '_')
+            .replaceAll(' ', '_');
     }
   }
 
-  /// Convertit le type de transaction affiché en UI vers la valeur enum backend.
-  String _normalizeTypeTransaction(String uiValue) {
-    switch (uiValue.trim().toLowerCase()) {
-      case 'vente':
-        return 'vente';
-      case 'location':
-        return 'location';
-      case 'colocation':
-        return 'colocation';
-      default:
-        return uiValue.toLowerCase();
+  String _normalizeTypeTransaction(String v) {
+    switch (v.trim().toLowerCase()) {
+      case 'vente':      return 'vente';
+      case 'location':   return 'location';
+      case 'colocation': return 'colocation';
+      default:           return v.toLowerCase();
     }
   }
 }
