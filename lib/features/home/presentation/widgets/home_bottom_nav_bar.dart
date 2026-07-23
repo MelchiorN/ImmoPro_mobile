@@ -4,6 +4,7 @@ import '../../../../core/di/service_locator.dart';
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../../profile/presentation/pages/profile_page.dart';
 import '../../../my_listings/presentation/pages/my_listings_page.dart';
+import '../../../messaging/presentation/pages/messaging_page.dart';
 
 class HomeBottomNavBar extends StatelessWidget {
   final int currentIndex;
@@ -49,10 +50,16 @@ class HomeBottomNavBar extends StatelessWidget {
               onTap: () => onTap?.call(0),
             ),
             _NavItem(
-              icon: Icons.search_rounded,
-              label: 'Recherche',
-              isActive: currentIndex == 1,
-              onTap: () => onTap?.call(1),
+              icon: Icons.chat_bubble_outline_rounded,
+              label: 'Messages',
+              isActive: false,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const MessagingPage(),
+                  ),
+                );
+              },
             ),
             // Bouton central "Publier"
             const _PublishButton(),

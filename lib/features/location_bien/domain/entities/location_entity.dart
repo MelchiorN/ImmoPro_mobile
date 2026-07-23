@@ -52,19 +52,27 @@ LocationStatut locationStatutFromString(String s) {
 
 class ContratEntity {
   final String id;
+  final String? idContrat;
   final String locationId;
   final String contenuHtml;
+  final String? urlPdf;
   final DateTime dateGeneration;
+  final DateTime? dateCreation;
   final DateTime? dateAcceptation;
   final ContratStatut statut;
+  final String statutSignature;
 
   const ContratEntity({
     required this.id,
+    this.idContrat,
     required this.locationId,
     required this.contenuHtml,
+    this.urlPdf,
     required this.dateGeneration,
+    this.dateCreation,
     this.dateAcceptation,
     required this.statut,
+    required this.statutSignature,
   });
 }
 
@@ -104,5 +112,29 @@ class InitierLocationResult {
   const InitierLocationResult({
     required this.location,
     required this.contrat,
+  });
+}
+
+// ─── Résultat d'initiation de paiement Semoa ─────────────────────────────────
+
+/// Réponse du backend après appel POST /locations/{id}/payer
+/// Le paiement est asynchrone : Semoa confirme via webhook.
+class PaiementSemoaEntity {
+  final String paiementId;
+  final String? billId;          // Identifiant Semoa
+  final double montant;
+  final String operateur;        // TMONEY | FLOOZ | CARD
+  final String statut;           // 'initie'
+  final String instructions;     // Message USSD ou instructions carte
+  final String? paymentUrl;      // URL redirection carte (CARD uniquement)
+
+  const PaiementSemoaEntity({
+    required this.paiementId,
+    this.billId,
+    required this.montant,
+    required this.operateur,
+    required this.statut,
+    required this.instructions,
+    this.paymentUrl,
   });
 }

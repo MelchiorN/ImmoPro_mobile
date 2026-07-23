@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/property_entity.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/price_formatter.dart';
+import '../../../../core/di/service_locator.dart';
 
 class PropertyCard extends StatelessWidget {
   final PropertyEntity property;
@@ -294,24 +295,35 @@ class _PropertyCardMediaState extends State<_PropertyCardMedia> {
             Positioned(
               top: 8,
               right: 8,
-              child: Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 6,
+              child: ListenableBuilder(
+                listenable: ServiceLocator.instance.favoritesController,
+                builder: (context, _) {
+                  final ctrl = ServiceLocator.instance.favoritesController;
+                  final isFav = ctrl.isFavorite(widget.property.id);
+
+                  return GestureDetector(
+                    onTap: () => ctrl.toggleFavorite(widget.property.id),
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 6,
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        isFav ? Icons.favorite : Icons.favorite_border,
+                        color: isFav ? AppColors.error : AppColors.primary,
+                        size: 18,
+                      ),
                     ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.favorite_border,
-                  color: AppColors.primary,
-                  size: 18,
-                ),
+                  );
+                },
               ),
             ),
 

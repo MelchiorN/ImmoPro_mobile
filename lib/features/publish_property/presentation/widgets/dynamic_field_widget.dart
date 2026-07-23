@@ -61,34 +61,28 @@ class _DynamicFieldWidgetState extends State<DynamicFieldWidget> {
   }
 
   Widget _buildLabel() {
-    return Row(children: [
-      Text(
-        widget.attribut.labelAffiche.toUpperCase(),
-        style: const TextStyle(
-          fontFamily: 'HankenGrotesk', fontSize: 11,
-          fontWeight: FontWeight.w600, letterSpacing: 0.8,
-          color: AppColors.onSurfaceVariant,
-        ),
-      ),
-      if (widget.attribut.obligatoire) ...[
-        const SizedBox(width: 4),
-        const Text('*', style: TextStyle(color: AppColors.error,
-            fontSize: 13, fontWeight: FontWeight.w700)),
-      ],
-      if (widget.attribut.estSocle) ...[
-        const SizedBox(width: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-          decoration: BoxDecoration(
-            color: AppColors.primaryContainer.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(4),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Flexible(
+          child: Text(
+            widget.attribut.labelAffiche.toUpperCase(),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontFamily: 'HankenGrotesk', fontSize: 10,
+              fontWeight: FontWeight.w600, letterSpacing: 0.6,
+              color: AppColors.onSurfaceVariant,
+            ),
           ),
-          child: const Text('SOCLE', style: TextStyle(
-            fontFamily: 'HankenGrotesk', fontSize: 9,
-            fontWeight: FontWeight.w700, color: AppColors.primaryContainer)),
         ),
+        if (widget.attribut.obligatoire) ...const [
+          SizedBox(width: 3),
+          Text('*', style: TextStyle(color: AppColors.error,
+              fontSize: 13, fontWeight: FontWeight.w700)),
+        ],
       ],
-    ]);
+    );
   }
 
   Widget _buildInput() {
@@ -138,7 +132,6 @@ class _DynamicFieldWidgetState extends State<DynamicFieldWidget> {
       decoration: _inputDecoration(
         hintText: '0',
         hasError: _errorText != null,
-        prefixIcon: Icons.tag_rounded,
       ),
       textInputAction: TextInputAction.next,
       onChanged: (v) {

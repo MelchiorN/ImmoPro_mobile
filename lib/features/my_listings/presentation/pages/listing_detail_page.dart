@@ -5,6 +5,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/price_formatter.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../features/home/domain/entities/property_entity.dart';
+import '../../../../features/publish_property/presentation/pages/edit_info_page.dart';
 import '../../domain/entities/listing_entity.dart';
 
 /// Page de détail d'une annonce de l'utilisateur avec suivi du statut.
@@ -87,8 +88,33 @@ class _ListingDetailPageState extends State<ListingDetailPage> {
   }
 
   bool get _canEditPhotos {
-    // Le client peut changer les photos seulement si le bien est modifiable
-    return ['brouillon', 'rejete', 'en_attente'].contains(_listing.statut);
+    return _listing.statut != 'archive';
+  }
+
+  /// Vrais si l'annonce peut encore être modifiée textuellement
+  bool get _canEditInfo {
+    const editableStatuts = {'en_attente', 'en_verification', 'rejete', 'brouillon'};
+    return editableStatuts.contains(_listing.statut);
+  }
+
+  Future<void> _openEditPage() async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => EditInfoPage(listing: _listing),
+      ),
+    );
+    // Si l'annonce a bien été modifiée, on recharge depuis le backend
+    if (result == true && mounted) {
+      final controller = ServiceLocator.instance.myListingsController;
+      await controller.load();
+      // Chercher la version mise à jour dans la liste
+      final updated = controller.listings
+          .where((l) => l.id == _listing.id)
+          .firstOrNull;
+      if (updated != null && mounted) {
+        setState(() => _listing = updated);
+      }
+    }
   }
 
   @override
@@ -102,7 +128,7 @@ class _ListingDetailPageState extends State<ListingDetailPage> {
       child: Scaffold(
         backgroundColor: AppColors.background,
         body: SafeArea(
-          top: true,
+          top: false,
           bottom: false,
           child: Column(
             children: [
@@ -140,6 +166,11 @@ class _ListingDetailPageState extends State<ListingDetailPage> {
                                 _RejectionCard(
                                   reason: _listing.rejectionReason!,
                                 ),
+                              // Bouton modifier l'annonce (si statut modifiable)
+                              if (_canEditInfo) ...[
+                                _buildEditInfoButton(),
+                                const SizedBox(height: 16),
+                              ],
                               // Bouton publier (si statut valide)
                               if (_listing.statut == 'valide') ...[
                                 _buildPublishButton(),
@@ -164,6 +195,33 @@ class _ListingDetailPageState extends State<ListingDetailPage> {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Bouton modifier l'annonce ──────────────────────────────────────────────
+  Widget _buildEditInfoButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: _openEditPage,
+        icon: const Icon(Icons.edit_rounded, size: 20),
+        label: const Text(
+          'Modifier l\'annonce',
+          style: TextStyle(
+            fontFamily: 'Manrope',
+            fontWeight: FontWeight.w700,
+            fontSize: 15,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.primaryContainer,
+          side: const BorderSide(color: AppColors.primaryContainer, width: 1.5),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
@@ -314,16 +372,21 @@ class _ListingDetailPageState extends State<ListingDetailPage> {
                 _heroPlaceholder(),
 
               // Dégradé haut
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.5),
-                      Colors.transparent,
-                    ],
-                    stops: const [0.0, 0.5],
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: MediaQuery.of(context).padding.top + 64,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.5),
+                        Colors.transparent,
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -350,7 +413,7 @@ class _ListingDetailPageState extends State<ListingDetailPage> {
 
               // Bouton retour
               Positioned(
-                top: 12,
+                top: MediaQuery.of(context).padding.top + 8,
                 left: 12,
                 child: GestureDetector(
                   onTap: () {
@@ -668,18 +731,18 @@ class _ListingDetailPageState extends State<ListingDetailPage> {
 
   String _typeBienLabel(String raw) {
     switch (raw) {
-      case 'appartement':
-        return 'Appartement';
-      case 'villa':
-        return 'Villa';
-      case 'maison':
-        return 'Maison';
-      case 'terrain':
-        return 'Terrain';
-      case 'bureau_commerce':
-        return 'Bureau / Commerce';
+      case 'appartement':      return 'Appartement';
+      case 'villa':            return 'Villa';
+      case 'maison':           return 'Maison';
+      case 'terrain':          return 'Terrain';
+      case 'bureau_commerce':  return 'Bureau / Commerce';
+      case 'chambre_studio':   return 'Chambre / Studio';
       default:
-        return raw;
+        return raw
+            .replaceAll('_', ' ')
+            .split(' ')
+            .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
+            .join(' ');
     }
   }
 

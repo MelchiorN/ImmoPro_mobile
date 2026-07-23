@@ -2,9 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/di/service_locator.dart';
 import '../controllers/profile_controller.dart';
 import 'edit_profile_page.dart';
 import 'security_page.dart';
+import 'historique_paiements_page.dart';
+import 'statistiques_page.dart';
+import '../../../favorites/presentation/pages/favorites_page.dart';
+import '../../../notifications/presentation/pages/notifications_page.dart';
+import 'aide_support_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -301,9 +307,14 @@ class _ProfilePageState extends State<ProfilePage> {
                                   value: _controller.visitCount.toString(),
                                   label: 'Visites'),
                               _Divider(),
-                              _StatItem(
-                                  value: _controller.favoriteCount.toString(),
-                                  label: 'Favoris'),
+                              // Favoris — données en temps réel depuis FavoritesController
+                              ListenableBuilder(
+                                listenable: ServiceLocator.instance.favoritesController,
+                                builder: (_, __) => _StatItem(
+                                  value: ServiceLocator.instance.favoritesController.favorites.length.toString(),
+                                  label: 'Favoris',
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -320,7 +331,9 @@ class _ProfilePageState extends State<ProfilePage> {
                         _InfoCard(user: user),
                         const SizedBox(height: 20),
 
-                        // ── Menu ───────────────────────────────────────
+                        // ── Compte & Paramètres ────────────────────────
+                        _SectionLabel(label: 'Compte & Paramètres'),
+                        const SizedBox(height: 12),
                         _MenuTile(
                           icon: Icons.person_outline_rounded,
                           color: const Color(0xFF003E7E),
@@ -352,29 +365,64 @@ class _ProfilePageState extends State<ProfilePage> {
                           title: 'Notifications',
                           subtitle: 'Gérer les alertes et emails',
                           onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Bientôt disponible.',
-                                    style: TextStyle(
-                                        fontFamily: 'HankenGrotesk')),
-                                behavior: SnackBarBehavior.floating,
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const NotificationsPage(),
                               ),
                             );
                           },
                         ),
+                        const SizedBox(height: 28),
+
+                        // ── Mon Activité ───────────────────────────────
+                        _SectionLabel(label: 'Mon Activité'),
+                        const SizedBox(height: 12),
+                        _MenuTile(
+                          icon: Icons.bar_chart_rounded,
+                          color: const Color(0xFF6A4C93),
+                          title: 'Statistiques',
+                          subtitle: 'Dépenses, locations, activité',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const StatistiquesPage()),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _MenuTile(
+                          icon: Icons.receipt_long_outlined,
+                          color: const Color(0xFF0077B6),
+                          title: 'Historique des paiements',
+                          subtitle: 'Toutes vos transactions',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const HistoriquePaiementsPage()),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _MenuTile(
+                          icon: Icons.favorite_outline_rounded,
+                          color: const Color(0xFFB5251C),
+                          title: 'Mes Favoris',
+                          subtitle: 'Biens que vous suivez',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const FavoritesPage()),
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+
+                        // ── Aide & Support ───────────────────────────
+                        _SectionLabel(label: 'Aide & Support'),
                         const SizedBox(height: 12),
                         _MenuTile(
                           icon: Icons.help_outline_rounded,
                           color: const Color(0xFF3A5F95),
                           title: 'Aide & Support',
-                          subtitle: 'FAQ, contacter l\'équipe',
+                          subtitle: "FAQ, contacter l'équipe",
                           onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Bientôt disponible.',
-                                    style: TextStyle(
-                                        fontFamily: 'HankenGrotesk')),
-                                behavior: SnackBarBehavior.floating,
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const AideSupportPage(),
                               ),
                             );
                           },
@@ -521,6 +569,40 @@ class _Divider extends StatelessWidget {
     );
   }
 }
+
+class _SectionLabel extends StatelessWidget {
+  final String label;
+  const _SectionLabel({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Row(
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: const TextStyle(
+              fontFamily: 'HankenGrotesk',
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+              color: AppColors.outline,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: AppColors.outlineVariant.withValues(alpha: 0.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 
 class _InfoCard extends StatelessWidget {
   final dynamic user;

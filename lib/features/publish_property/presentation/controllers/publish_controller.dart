@@ -4,6 +4,8 @@ import '../../data/datasources/publish_remote_datasource.dart';
 import '../../domain/entities/category_schema_entity.dart';
 import '../../domain/entities/property_draft_entity.dart';
 import '../../domain/usecases/submit_property_usecase.dart';
+import '../../../my_listings/domain/entities/listing_entity.dart';
+import '../../data/models/property_draft_model.dart';
 
 enum PublishStatus { idle, loading, success, error }
 enum SchemaStatus  { idle, loading, loaded, error }
@@ -35,6 +37,23 @@ class PublishController extends ChangeNotifier {
 
   String? _submittedPropertyId;
   String? get submittedPropertyId => _submittedPropertyId;
+
+  List<Map<String, String>> _categoriesList = [];
+  List<Map<String, String>> get categoriesList => _categoriesList;
+
+  Future<List<Map<String, String>>> fetchCategories() async {
+    try {
+      final data = await _dataSource.getCategories();
+      _categoriesList = data.map((c) => {
+        'slug': c['slug'] as String? ?? '',
+        'nom': c['nom'] as String? ?? '',
+      }).where((element) => element['slug']!.isNotEmpty).toList();
+      notifyListeners();
+      return _categoriesList;
+    } catch (_) {
+      return [];
+    }
+  }
 
   // ── Chargement du schéma de catégorie ───────────────────────────────────
 
@@ -94,6 +113,13 @@ class PublishController extends ChangeNotifier {
     }
   }
 
+  void updateRooms(int value) {
+    if (value >= 1) {
+      _draft = _draft.copyWith(rooms: value);
+      notifyListeners();
+    }
+  }
+
   void incrementRooms() {
     _draft = _draft.copyWith(rooms: _draft.rooms + 1);
     notifyListeners();
@@ -102,6 +128,13 @@ class PublishController extends ChangeNotifier {
   void decrementRooms() {
     if (_draft.rooms > 1) {
       _draft = _draft.copyWith(rooms: _draft.rooms - 1);
+      notifyListeners();
+    }
+  }
+
+  void updateBathrooms(int value) {
+    if (value >= 1) {
+      _draft = _draft.copyWith(bathrooms: value);
       notifyListeners();
     }
   }
@@ -238,6 +271,55 @@ class PublishController extends ChangeNotifier {
   void resetError() {
     _errorMessage = null;
     _status = PublishStatus.idle;
+    notifyListeners();
+  }
+
+  // ── Mode Édition ─────────────────────────────────────────────────────────
+
+  void initForEdit(ListingEntity listing) {
+    _draft = PropertyDraftEntity(
+      propertyType: listing.typeBien,
+      transactionType: listing.typeTransaction,
+      title: listing.title,
+      price: listing.price,
+      surface: listing.surface,
+      rooms: listing.rooms ?? 1,
+      bathrooms: listing.bathrooms ?? 1,
+      description: listing.description,
+      address: listing.location,
+      caracteristiques: Map<String, dynamic>.from(listing.caracteristiques),
+      // we don't handle media/documents here for edit text
+    );
+    loadCategorySchema(listing.typeBien);
+    _status = PublishStatus.idle;
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  Future<void> updateExistingProperty(String id) async {
+    _status = PublishStatus.loading;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final model = PropertyDraftModel.fromEntity(_draft);
+      await _dataSource.updateProperty(id, model);
+      _status = PublishStatus.success;
+    } on ApiException catch (e) {
+      _status = PublishStatus.error;
+      if (e.statusCode == 422 && e.errors != null) {
+        final msgs = e.errors!.values
+            .expand((v) => v is List ? v : [v])
+            .take(3)
+            .join('\n');
+        _errorMessage = msgs.isNotEmpty ? msgs : e.message;
+      } else {
+        _errorMessage = e.message;
+      }
+    } catch (_) {
+      _status = PublishStatus.error;
+      _errorMessage = 'Échec de la modification. Vérifiez votre connexion.';
+    }
     notifyListeners();
   }
 }

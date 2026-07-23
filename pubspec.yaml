@@ -30,7 +30,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  
 
+  
   # Icons Cupertino
   cupertino_icons: ^1.0.8
 
@@ -77,12 +79,26 @@ dependencies:
   firebase_messaging: ^16.4.3
   firebase_core: ^4.12.1
   flutter_local_notifications: ^20.1.0
+  path_provider: ^2.1.2
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.4
+
+
+
+# Logo de l'appli
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "lib/assets/images/immopro_logo.png"
+
+
+  
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

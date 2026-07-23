@@ -8,6 +8,11 @@ class InitierLocationUseCase {
   Future<InitierLocationResult> call({
     required String bienId,
     required int dureeMois,
+    required DateTime dateDebut,
   }) =>
-      _repository.initierLocation(bienId: bienId, dureeMois: dureeMois);
+      _repository.initierLocation(
+        bienId: bienId,
+        dureeMois: dureeMois,
+        dateDebut: dateDebut,
+      );
 }

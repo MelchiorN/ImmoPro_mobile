@@ -27,6 +27,11 @@ import '../../features/location_bien/domain/usecases/initier_location_usecase.da
 import '../../features/location_bien/domain/usecases/accepter_contrat_usecase.dart';
 import '../../features/location_bien/domain/usecases/payer_location_usecase.dart';
 import '../../features/location_bien/presentation/controllers/location_controller.dart';
+import '../../features/favorites/data/datasources/favorites_remote_datasource.dart';
+import '../../features/favorites/data/repositories/favorites_repository_impl.dart';
+import '../../features/favorites/domain/usecases/get_favorites_usecase.dart';
+import '../../features/favorites/domain/usecases/toggle_favorite_usecase.dart';
+import '../../features/favorites/presentation/controllers/favorites_controller.dart';
 
 /// Service Locator simple pour l'injection de dépendances.
 ///
@@ -135,4 +140,23 @@ class ServiceLocator {
         accepterUseCase: accepterContratUseCase,
         payerUseCase: payerLocationUseCase,
       );
+
+  // ── Favorites ─────────────────────────────────────────────────────────────
+  late final FavoritesRemoteDataSource favoritesRemoteDataSource =
+      FavoritesRemoteDataSourceImpl(client: apiClient);
+
+  late final FavoritesRepositoryImpl favoritesRepository =
+      FavoritesRepositoryImpl(favoritesRemoteDataSource);
+
+  late final GetFavoritesUseCase getFavoritesUseCase =
+      GetFavoritesUseCase(favoritesRepository);
+
+  late final ToggleFavoriteUseCase toggleFavoriteUseCase =
+      ToggleFavoriteUseCase(favoritesRepository);
+
+  /// Singleton partagé
+  late final FavoritesController favoritesController = FavoritesController(
+    getFavoritesUseCase: getFavoritesUseCase,
+    toggleFavoriteUseCase: toggleFavoriteUseCase,
+  );
 }

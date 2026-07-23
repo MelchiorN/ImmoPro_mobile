@@ -39,24 +39,35 @@ class LocationModel extends LocationEntity {
 class ContratModel extends ContratEntity {
   const ContratModel({
     required super.id,
+    super.idContrat,
     required super.locationId,
     required super.contenuHtml,
+    super.urlPdf,
     required super.dateGeneration,
+    super.dateCreation,
     super.dateAcceptation,
     required super.statut,
+    required super.statutSignature,
   });
 
   factory ContratModel.fromJson(Map<String, dynamic> json) {
+    final rawStatut = json['statutSignature'] as String? ?? json['statut_signature'] as String? ?? json['statut'] as String? ?? 'en_attente';
+    final dateGenStr = json['dateCreation'] as String? ?? json['date_creation'] as String? ?? json['date_generation'] as String? ?? DateTime.now().toIso8601String();
+    final dateGen = DateTime.tryParse(dateGenStr) ?? DateTime.now();
+
     return ContratModel(
-      id:              json['id']?.toString() ?? '',
-      locationId:      json['location_id']?.toString() ?? '',
-      contenuHtml:     json['contenu_html'] as String? ?? '',
-      dateGeneration:  DateTime.parse(
-          json['date_generation'] as String? ?? DateTime.now().toIso8601String()),
+      id:              json['idContrat']?.toString() ?? json['id']?.toString() ?? '',
+      idContrat:       json['idContrat']?.toString() ?? json['id']?.toString(),
+      locationId:      json['location_id']?.toString() ?? json['locationId']?.toString() ?? '',
+      contenuHtml:     json['contenu_html'] as String? ?? json['contenuHtml'] as String? ?? '',
+      urlPdf:          json['urlPdf'] as String? ?? json['fichier_pdf'] as String?,
+      dateGeneration:  dateGen,
+      dateCreation:    dateGen,
       dateAcceptation: json['date_acceptation'] != null
-          ? DateTime.parse(json['date_acceptation'] as String)
+          ? DateTime.tryParse(json['date_acceptation'] as String)
           : null,
-      statut: contratStatutFromString(json['statut_signature'] as String? ?? ''),
+      statut:          contratStatutFromString(rawStatut),
+      statutSignature: rawStatut,
     );
   }
 }
@@ -96,11 +107,55 @@ class InitierLocationResultModel extends InitierLocationResult {
 
   factory InitierLocationResultModel.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? json;
+    final locationMap = (data['location'] as Map<String, dynamic>?) ?? data;
+    final contratMap = (data['contrat'] as Map<String, dynamic>?) ?? {};
+
+    // Si location_id est au niveau racine de data
+    final locationId = locationMap['id']?.toString() ?? locationMap['location_id']?.toString() ?? '';
+
     return InitierLocationResultModel(
-      location: LocationModel.fromJson(
-          data['location'] as Map<String, dynamic>),
-      contrat: ContratModel.fromJson(
-          data['contrat'] as Map<String, dynamic>),
+      location: LocationModel(
+        id: locationId,
+        bienId: locationMap['bien_id']?.toString() ?? '',
+        locataireId: locationMap['locataire_id']?.toString() ?? '',
+        proprietaireId: locationMap['proprietaire_id']?.toString() ?? '',
+        dateDebut: DateTime.tryParse(locationMap['date_debut']?.toString() ?? '') ?? DateTime.now(),
+        dateFin: DateTime.tryParse(locationMap['date_fin']?.toString() ?? '') ?? DateTime.now(),
+        dureeMois: (locationMap['duree_mois'] as num?)?.toInt() ?? 1,
+        prixProprietaire: (locationMap['prix_proprietaire'] as num?)?.toDouble() ?? 0,
+        montantCommission: (locationMap['montant_commission'] as num?)?.toDouble() ?? 0,
+        montantTotal: (locationMap['montant_total'] as num?)?.toDouble() ?? 0,
+        statut: locationStatutFromString(locationMap['statut']?.toString() ?? 'en_attente_contrat'),
+      ),
+      contrat: ContratModel.fromJson(contratMap),
     );
   }
 }
+
+// ─── PaiementSemoaModel ───────────────────────────────────────────────────────
+
+/// Parse la réponse POST /locations/{id}/payer (intégration Semoa CashPay).
+class PaiementSemoaModel extends PaiementSemoaEntity {
+  const PaiementSemoaModel({
+    required super.paiementId,
+    super.billId,
+    required super.montant,
+    required super.operateur,
+    required super.statut,
+    required super.instructions,
+    super.paymentUrl,
+  });
+
+  factory PaiementSemoaModel.fromJson(Map<String, dynamic> json) {
+    return PaiementSemoaModel(
+      paiementId:   json['paiement_id']?.toString() ?? '',
+      billId:       json['bill_id']?.toString(),
+      montant:      (json['montant'] as num?)?.toDouble() ?? 0,
+      operateur:    json['operateur']?.toString() ?? '',
+      statut:       json['statut']?.toString() ?? 'initie',
+      instructions: json['instructions']?.toString() ?? '',
+      paymentUrl:   json['payment_url']?.toString(),
+    );
+  }
+}
+

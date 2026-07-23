@@ -16,12 +16,20 @@ abstract class HomeRemoteDataSource {
   });
 
   Future<PropertyModel> getPropertyDetail(String id);
+  Future<List<Map<String, dynamic>>> getCategories();
 }
 
 class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
   final ApiClient _api;
 
   HomeRemoteDataSourceImpl([ApiClient? api]) : _api = api ?? ApiClient.instance;
+
+  @override
+  Future<List<Map<String, dynamic>>> getCategories() async {
+    final response = await _api.getPublic('/categories');
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data.map((item) => Map<String, dynamic>.from(item as Map)).toList();
+  }
 
   @override
   Future<List<PropertyModel>> getProperties({

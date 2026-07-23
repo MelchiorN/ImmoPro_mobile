@@ -16,6 +16,8 @@ class PropertyEntity {
   final double? longitude;
   final String? publishedAt;
   final List<PropertyMedia> medias;
+  final Map<String, dynamic> caracteristiques;
+  final String? userId;
 
   const PropertyEntity({
     required this.id,
@@ -35,6 +37,8 @@ class PropertyEntity {
     this.longitude,
     this.publishedAt,
     this.medias = const [],
+    this.caracteristiques = const {},
+    this.userId,
   });
 }
 

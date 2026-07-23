@@ -31,8 +31,6 @@ class _CityAutocompleteFieldState extends State<CityAutocompleteField> {
   final _layerLink  = LayerLink();
 
   bool _isLoadingCities  = false;
-  // ignore: prefer_final_fields
-  bool _showSuggestions  = false;
   List<String> _suggestions = [];
   OverlayEntry? _overlayEntry;
 

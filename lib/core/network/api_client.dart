@@ -33,6 +33,8 @@ class ApiClient {
 
   static const String _baseUrl = 'http://localhost:8000/api';
 
+  String get baseUrl => _baseUrl;
+
   static const String _tokenKey = 'sanctum_token';
 
   final _storage = const FlutterSecureStorage();

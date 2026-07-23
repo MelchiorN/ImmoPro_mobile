@@ -39,6 +39,8 @@ class PropertyModel extends PropertyEntity {
     super.longitude,
     super.publishedAt,
     super.medias,
+    super.caracteristiques,
+    super.userId,
   });
 
   /// Parse depuis BienListResource (GET /api/biens)
@@ -72,24 +74,56 @@ class PropertyModel extends PropertyEntity {
       }
     }
 
+    double parseDouble(dynamic v) {
+      if (v == null) return 0;
+      if (v is num) return v.toDouble();
+      return double.tryParse(v.toString()) ?? 0;
+    }
+
+    double? parseOptionalDouble(dynamic v) {
+      if (v == null) return null;
+      if (v is num) return v.toDouble();
+      return double.tryParse(v.toString());
+    }
+
+    int? parseOptionalInt(dynamic v) {
+      if (v == null) return null;
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      return int.tryParse(v.toString());
+    }
+
+    Map<String, dynamic> parseCaracteristiques(dynamic v) {
+      if (v == null) return {};
+      if (v is Map) {
+        return Map<String, dynamic>.from(v);
+      }
+      return {};
+    }
+
+    final userId = json['user_id']?.toString() ??
+        (json['proprietaire'] is Map ? json['proprietaire']['id']?.toString() : null);
+
     return PropertyModel(
       id: json['id']?.toString() ?? '',
-      title: json['titre'] as String? ?? '',
-      description: json['description'] as String? ?? '',
-      price: (json['prix'] as num?)?.toDouble() ?? 0,
-      location: json['adresse'] as String? ?? '',
-      surface: (json['surface'] as num?)?.toDouble(),
-      rooms: json['nb_pieces'] as int?,
+      title: json['titre']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      price: parseDouble(json['prix_public'] ?? json['prix']),
+      location: json['adresse']?.toString() ?? '',
+      surface: parseOptionalDouble(json['surface']),
+      rooms: parseOptionalInt(json['nb_pieces']),
       bathrooms: null, // not in list resource
       imageUrl: imageUrl,
       videoUrl: videoUrl,
       isVerified: json['statut'] == 'publie',
-      type: _parseType(json['type_transaction'] as String?),
-      category: _parseCategory(json['type_bien'] as String?),
-      latitude: (json['latitude'] as num?)?.toDouble(),
-      longitude: (json['longitude'] as num?)?.toDouble(),
-      publishedAt: json['publie_le'] as String?,
+      type: _parseType(json['type_transaction']?.toString()),
+      category: (json['categorie_nom']?.toString()) ?? _parseCategory(json['type_bien']?.toString()),
+      latitude: parseOptionalDouble(json['latitude']),
+      longitude: parseOptionalDouble(json['longitude']),
+      publishedAt: json['publie_le']?.toString(),
       medias: medias,
+      caracteristiques: parseCaracteristiques(json['caracteristiques']),
+      userId: userId,
     );
   }
 
@@ -113,24 +147,56 @@ class PropertyModel extends PropertyEntity {
       }
     }
 
+    double parseDouble(dynamic v) {
+      if (v == null) return 0;
+      if (v is num) return v.toDouble();
+      return double.tryParse(v.toString()) ?? 0;
+    }
+
+    double? parseOptionalDouble(dynamic v) {
+      if (v == null) return null;
+      if (v is num) return v.toDouble();
+      return double.tryParse(v.toString());
+    }
+
+    int? parseOptionalInt(dynamic v) {
+      if (v == null) return null;
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      return int.tryParse(v.toString());
+    }
+
+    Map<String, dynamic> parseCaracteristiques(dynamic v) {
+      if (v == null) return {};
+      if (v is Map) {
+        return Map<String, dynamic>.from(v);
+      }
+      return {};
+    }
+
+    final userId = json['user_id']?.toString() ??
+        (json['proprietaire'] is Map ? json['proprietaire']['id']?.toString() : null);
+
     return PropertyModel(
       id: json['id']?.toString() ?? '',
-      title: json['titre'] as String? ?? '',
-      description: json['description'] as String? ?? '',
-      price: (json['prix'] as num?)?.toDouble() ?? 0,
-      location: json['adresse'] as String? ?? '',
-      surface: (json['surface'] as num?)?.toDouble(),
-      rooms: json['nb_pieces'] as int?,
-      bathrooms: json['nb_salles_bain'] as int?,
+      title: json['titre']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      price: parseDouble(json['prix_public'] ?? json['prix']),
+      location: json['adresse']?.toString() ?? '',
+      surface: parseOptionalDouble(json['surface']),
+      rooms: parseOptionalInt(json['nb_pieces']),
+      bathrooms: parseOptionalInt(json['nb_salles_bain']),
       imageUrl: imageUrl,
       videoUrl: videoUrl,
       isVerified: json['statut'] == 'publie',
-      type: _parseType(json['type_transaction'] as String?),
-      category: _parseCategory(json['type_bien'] as String?),
-      latitude: (json['latitude'] as num?)?.toDouble(),
-      longitude: (json['longitude'] as num?)?.toDouble(),
-      publishedAt: json['publie_le'] as String?,
+      type: _parseType(json['type_transaction']?.toString()),
+      category: (json['categorie_nom']?.toString()) ?? _parseCategory(json['type_bien']?.toString()),
+      latitude: parseOptionalDouble(json['latitude']),
+      longitude: parseOptionalDouble(json['longitude']),
+      publishedAt: json['publie_le']?.toString(),
       medias: medias,
+      caracteristiques: parseCaracteristiques(json['caracteristiques']),
+      userId: userId,
     );
   }
 
@@ -146,19 +212,20 @@ class PropertyModel extends PropertyEntity {
   }
 
   static String _parseCategory(String? raw) {
+    if (raw == null || raw.isEmpty) return 'Autre';
     switch (raw) {
-      case 'appartement':
-        return 'Appartement';
-      case 'maison':
-        return 'Maison';
-      case 'villa':
-        return 'Villa';
-      case 'terrain':
-        return 'Terrain';
-      case 'bureau_commerce':
-        return 'Bureau';
+      case 'appartement':      return 'Appartement';
+      case 'maison':           return 'Maison';
+      case 'villa':            return 'Villa';
+      case 'terrain':          return 'Terrain';
+      case 'bureau_commerce':  return 'Bureau / Commerce';
+      case 'chambre_studio':   return 'Chambre / Studio';
       default:
-        return raw ?? 'Autre';
+        return raw
+            .replaceAll('_', ' ')
+            .split(' ')
+            .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
+            .join(' ');
     }
   }
 

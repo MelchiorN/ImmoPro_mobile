@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../controllers/notifications_controller.dart';
 import '../../data/models/notification_model.dart';
@@ -34,6 +35,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         backgroundColor: AppColors.primaryContainer,
         foregroundColor: Colors.white,
         elevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
         title: const Text(
           'Notifications',
           style: TextStyle(

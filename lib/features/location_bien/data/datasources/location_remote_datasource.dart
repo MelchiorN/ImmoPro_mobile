@@ -5,13 +5,17 @@ abstract class LocationRemoteDataSource {
   Future<InitierLocationResultModel> initierLocation({
     required String bienId,
     required int dureeMois,
+    required DateTime dateDebut,
   });
 
   Future<ContratModel> accepterContrat(String locationId);
 
-  Future<LocationModel> initierPaiement({
+  Future<void> refuserContrat(String locationId);
+
+  Future<PaiementSemoaModel> initierPaiement({
     required String locationId,
     required String operateurPaiement,
+    String? telephone,
   });
 
   Future<RecuModel> confirmerPaiement(String locationId);
@@ -27,10 +31,13 @@ class LocationRemoteDataSourceImpl implements LocationRemoteDataSource {
   Future<InitierLocationResultModel> initierLocation({
     required String bienId,
     required int dureeMois,
+    required DateTime dateDebut,
   }) async {
     final response = await _api.postAuth('/mobile/locations/initier', {
       'bien_id': bienId,
       'duree_mois': dureeMois,
+      'date_debut':
+          '${dateDebut.year}-${dateDebut.month.toString().padLeft(2, '0')}-${dateDebut.day.toString().padLeft(2, '0')}',
     });
     return InitierLocationResultModel.fromJson(response);
   }
@@ -44,16 +51,28 @@ class LocationRemoteDataSourceImpl implements LocationRemoteDataSource {
   }
 
   @override
-  Future<LocationModel> initierPaiement({
+  Future<void> refuserContrat(String locationId) async {
+    await _api.postAuth('/mobile/locations/$locationId/refuser-contrat');
+  }
+
+  @override
+  Future<PaiementSemoaModel> initierPaiement({
     required String locationId,
     required String operateurPaiement,
+    String? telephone,
   }) async {
+    final body = <String, dynamic>{
+      'operateur_paiement': operateurPaiement,
+    };
+    if (telephone != null && telephone.isNotEmpty) {
+      body['telephone'] = telephone;
+    }
     final response = await _api.postAuth(
       '/mobile/locations/$locationId/payer',
-      {'operateur_paiement': operateurPaiement},
+      body,
     );
     final data = response['data'] as Map<String, dynamic>? ?? response;
-    return LocationModel.fromJson(data);
+    return PaiementSemoaModel.fromJson(data);
   }
 
   @override

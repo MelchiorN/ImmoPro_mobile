@@ -9,6 +9,7 @@ abstract class HomeRepository {
   });
   Future<List<PropertyEntity>> searchProperties(
     String query, {
+    String? typeBien,
     String? typeTransaction,
     double? prixMin,
     double? prixMax,

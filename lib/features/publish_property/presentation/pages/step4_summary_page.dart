@@ -614,12 +614,48 @@ class _MediaGrid extends StatelessWidget {
       children: [
         ...displayPaths.asMap().entries.map((e) {
           final isLast = e.key == 3 && extra > 0;
+          final ext = e.value.split('.').last.toLowerCase();
+          final isVideo = ['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(ext);
           return ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.file(File(e.value), fit: BoxFit.cover),
+                // ── Aperçu selon le type ──────────────────────────────
+                if (isVideo)
+                  Container(
+                    color: const Color(0xFF1A1A2E),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.play_circle_filled_rounded,
+                            color: Colors.white70, size: 40),
+                        const SizedBox(height: 6),
+                        Text(
+                          e.value.split('/').last.split('\\').last,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: 'HankenGrotesk',
+                            fontSize: 10,
+                            color: Colors.white54,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Image.file(
+                    File(e.value),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      color: AppColors.surfaceContainer,
+                      child: const Icon(Icons.broken_image_outlined,
+                          color: AppColors.outline, size: 32),
+                    ),
+                  ),
+                // ── Overlay "+N" si dernière vignette ─────────────────
                 if (isLast)
                   Container(
                     color: Colors.black54,

@@ -4,7 +4,9 @@ import '../models/property_draft_model.dart';
 
 abstract class PublishRemoteDataSource {
   Future<CategorySchemaModel> getCategorySchema(String slug);
+  Future<List<Map<String, dynamic>>> getCategories();
   Future<String> submitProperty(PropertyDraftModel model);
+  Future<void> updateProperty(String id, PropertyDraftModel model);
 }
 
 class PublishRemoteDataSourceImpl implements PublishRemoteDataSource {
@@ -12,6 +14,13 @@ class PublishRemoteDataSourceImpl implements PublishRemoteDataSource {
 
   PublishRemoteDataSourceImpl([ApiClient? client])
       : _apiClient = client ?? ApiClient.instance;
+
+  @override
+  Future<List<Map<String, dynamic>>> getCategories() async {
+    final response = await _apiClient.getPublic('/categories');
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data.map((item) => Map<String, dynamic>.from(item as Map)).toList();
+  }
 
   // ── GET /api/categories/{slug}/schema ─────────────────────────────────────
 
@@ -106,28 +115,51 @@ class PublishRemoteDataSourceImpl implements PublishRemoteDataSource {
       files:  files,
     );
 
-    final data = response['data'] as Map<String, dynamic>?;
-    return data?['id'] as String? ?? '';
+    return response['data']['id']?.toString() ?? '';
+  }
+
+  // ── PUT /api/mes-biens/{id} ────────────────────────────────────────────────
+
+  @override
+  Future<void> updateProperty(String id, PropertyDraftModel model) async {
+    final fields = <String, dynamic>{
+      'type_bien':        _normalizeTypeBien(model.propertyType ?? ''),
+      'type_transaction': _normalizeTypeTransaction(model.transactionType ?? ''),
+      'titre':            model.title ?? '',
+      'prix':             model.price ?? 0,
+      'adresse':          model.address ?? '',
+      'latitude':         model.latitude ?? 0,
+      'longitude':        model.longitude ?? 0,
+    };
+
+    if (model.surface != null) {
+      fields['surface'] = model.surface;
+    }
+    if (model.superficie != null) {
+      fields['superficie'] = model.superficie;
+    }
+    if ((model.description ?? '').isNotEmpty) {
+      fields['description'] = model.description!;
+    }
+
+    const typesSansChambre = {'terrain', 'bureau_commerce', 'chambre_studio'};
+    final typeNorm = _normalizeTypeBien(model.propertyType ?? '');
+    if (!typesSansChambre.contains(typeNorm)) {
+      fields['nb_pieces']      = model.rooms;
+      fields['nb_salles_bain'] = model.bathrooms;
+    }
+
+    if (model.caracteristiques.isNotEmpty) {
+      fields['caracteristiques'] = model.caracteristiques;
+    }
+
+    await _apiClient.putAuth('/mes-biens/$id', fields);
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   String _normalizeTypeBien(String v) {
-    switch (v.trim().toLowerCase()) {
-      case 'appartement':      return 'appartement';
-      case 'maison':           return 'maison';
-      case 'villa':            return 'villa';
-      case 'terrain':          return 'terrain';
-      case 'bureau / commerce':
-      case 'bureau/commerce':
-      case 'bureau_commerce':  return 'bureau_commerce';
-      case 'chambre / studio':
-      case 'chambre_studio':   return 'chambre_studio';
-      default:
-        return v.toLowerCase()
-            .replaceAll(' / ', '_')
-            .replaceAll(' ', '_');
-    }
+    return v.trim().toLowerCase().replaceAll(' / ', '_').replaceAll(' ', '_');
   }
 
   String _normalizeTypeTransaction(String v) {

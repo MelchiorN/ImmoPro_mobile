@@ -483,14 +483,30 @@ class _PropertySummaryCard extends StatelessWidget {
             child: SizedBox(
               width: 80,
               height: 80,
-              child: thumbnailPath != null
-                  ? Image.file(File(thumbnailPath!), fit: BoxFit.cover)
-                  : Container(
-                      color: AppColors.primaryContainer
-                          .withValues(alpha: 0.15),
-                      child: const Icon(Icons.home_work_rounded,
-                          color: AppColors.primaryContainer, size: 36),
-                    ),
+              child: () {
+                if (thumbnailPath == null) {
+                  return Container(
+                    color: AppColors.primaryContainer.withValues(alpha: 0.15),
+                    child: const Icon(Icons.home_work_rounded,
+                        color: AppColors.primaryContainer, size: 36),
+                  );
+                }
+                final ext = thumbnailPath!.split('.').last.toLowerCase();
+                final isVideo = ['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(ext);
+                if (isVideo) {
+                  return Container(
+                    color: const Color(0xFF1A1A2E),
+                    child: const Icon(Icons.play_circle_filled_rounded,
+                        color: Colors.white70, size: 36),
+                  );
+                }
+                return Image.file(File(thumbnailPath!), fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      color: AppColors.surfaceContainer,
+                      child: const Icon(Icons.broken_image_outlined,
+                          color: AppColors.outline, size: 32),
+                    ));
+              }(),
             ),
           ),
           const SizedBox(width: 14),

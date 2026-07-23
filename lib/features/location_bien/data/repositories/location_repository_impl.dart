@@ -10,24 +10,31 @@ class LocationRepositoryImpl implements LocationRepository {
   Future<InitierLocationResult> initierLocation({
     required String bienId,
     required int dureeMois,
+    required DateTime dateDebut,
   }) =>
-      _remote.initierLocation(bienId: bienId, dureeMois: dureeMois);
+      _remote.initierLocation(
+        bienId: bienId,
+        dureeMois: dureeMois,
+        dateDebut: dateDebut,
+      );
 
   @override
   Future<ContratEntity> accepterContrat(String locationId) =>
       _remote.accepterContrat(locationId);
 
   @override
-  Future<LocationEntity> initierPaiement({
+  Future<void> refuserContrat(String locationId) =>
+      _remote.refuserContrat(locationId);
+
+  @override
+  Future<PaiementSemoaEntity> initierPaiement({
     required String locationId,
     required String operateurPaiement,
+    String? telephone,
   }) =>
       _remote.initierPaiement(
         locationId: locationId,
         operateurPaiement: operateurPaiement,
+        telephone: telephone,
       );
-
-  @override
-  Future<RecuEntity> confirmerPaiement(String locationId) =>
-      _remote.confirmerPaiement(locationId);
 }

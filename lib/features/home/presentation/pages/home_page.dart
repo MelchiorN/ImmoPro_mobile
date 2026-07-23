@@ -14,11 +14,13 @@ import '../../domain/usecases/search_properties_usecase.dart';
 import '../../domain/usecases/get_categories_usecase.dart';
 import '../../domain/usecases/get_property_detail_usecase.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/di/service_locator.dart';
 import '../../../notifications/presentation/controllers/notifications_controller.dart';
 import '../../../notifications/presentation/pages/notifications_page.dart';
 import '../../../profile/presentation/pages/profile_page.dart';
 import '../../../../core/services/fcm_service.dart';
 import 'property_detail_page.dart';
+import '../../../ai_chat/presentation/pages/ai_chat_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -64,6 +66,11 @@ class _HomePageState extends State<HomePage> {
     });
 
     _controller.init();
+    
+    // Charger les favoris si l'utilisateur est connecté
+    if (ServiceLocator.instance.currentUser != null) {
+      ServiceLocator.instance.favoritesController.loadFavorites();
+    }
   }
 
   @override
@@ -118,6 +125,26 @@ class _HomePageState extends State<HomePage> {
                 ],
               );
             },
+          ),
+        ),
+        floatingActionButton: Padding(
+          padding: const EdgeInsets.only(bottom: 60.0), // Raise it slightly so it doesn't block the bottom nav items
+          child: FloatingActionButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AiChatPage()),
+              );
+            },
+            backgroundColor: AppColors.primaryContainer,
+            elevation: 6,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Icons.smart_toy_rounded,
+              color: Colors.white,
+              size: 28,
+            ),
           ),
         ),
       ),

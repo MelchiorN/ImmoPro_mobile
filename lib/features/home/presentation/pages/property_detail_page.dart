@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:video_player/video_player.dart';
 import '../../domain/entities/property_entity.dart';
 import '../../domain/usecases/get_property_detail_usecase.dart';
+import '../../data/datasources/home_remote_datasource.dart';
+import '../widgets/property_card.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/price_formatter.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../location_bien/presentation/pages/location_duree_page.dart';
+import 'property_map_navigation_page.dart';
 
 class PropertyDetailPage extends StatefulWidget {
   final PropertyEntity property;
@@ -47,6 +52,9 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
 
   PropertyEntity get _property => _detail ?? widget.property;
 
+  List<PropertyEntity> _similarProperties = [];
+  bool _isLoadingSimilar = false;
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +69,7 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
       if (clamped != _currentIndex) setState(() => _currentIndex = clamped);
     });
     if (widget.getDetailUseCase != null) _loadDetail();
+    _loadSimilarProperties();
   }
 
   @override
@@ -80,6 +89,25 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
     }
   }
 
+  Future<void> _loadSimilarProperties() async {
+    setState(() => _isLoadingSimilar = true);
+    try {
+      final ds = HomeRemoteDataSourceImpl();
+      final list = await ds.getProperties(
+        typeBien: _property.category,
+        perPage: 6,
+      );
+      if (mounted) {
+        setState(() {
+          _similarProperties = list.where((p) => p.id != _property.id).toList();
+        });
+      }
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _isLoadingSimilar = false);
+    }
+  }
+
   // Plus utilisé — tous les types ont désormais Réserver + Louer
 
   @override
@@ -96,9 +124,9 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
       ),
       child: Scaffold(
         backgroundColor: AppColors.background,
-        extendBodyBehindAppBar: false,
+        extendBodyBehindAppBar: true,
         body: SafeArea(
-          top: true,
+          top: false,
           bottom: false,
           child: Column(
             children: [
@@ -133,6 +161,10 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
                                 _buildHeader(),
                                 const SizedBox(height: 16),
                                 _buildStatsPills(),
+                                const SizedBox(height: 16),
+                                _buildAgentContactSection(),
+                                const SizedBox(height: 20),
+                                _buildCaracteristiquesSection(),
                                 const SizedBox(height: 20),
                                 _buildDescription(),
                                 const SizedBox(height: 20),
@@ -191,7 +223,7 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
             top: 0,
             left: 0,
             right: 0,
-            height: 64,
+            height: MediaQuery.of(context).padding.top + 64,
             child: Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -207,7 +239,7 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
           ),
           // Bouton retour
           Positioned(
-            top: 12,
+            top: MediaQuery.of(context).padding.top + 8,
             left: 12,
             child: _CircleBtn(
               icon: Icons.arrow_back,
@@ -216,9 +248,20 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
           ),
           // Bouton favori
           Positioned(
-            top: 12,
+            top: MediaQuery.of(context).padding.top + 8,
             right: 12,
-            child: _CircleBtn(icon: Icons.favorite_border, onTap: () {}),
+            child: ListenableBuilder(
+              listenable: ServiceLocator.instance.favoritesController,
+              builder: (context, _) {
+                final ctrl = ServiceLocator.instance.favoritesController;
+                final isFav = ctrl.isFavorite(_property.id);
+                return _CircleBtn(
+                  icon: isFav ? Icons.favorite : Icons.favorite_border,
+                  iconColor: isFav ? AppColors.error : AppColors.primary,
+                  onTap: () => ctrl.toggleFavorite(_property.id),
+                );
+              },
+            ),
           ),
           // Compteur + icône agrandissement
           if (media.isNotEmpty)
@@ -512,10 +555,286 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
     );
   }
 
-  // ── Localisation (mini-carte stylisée) ────────────────────────────────────
+  // ── Contact Agent Vérificateur (Nous contacter) ───────────────────────────
+  Widget _buildAgentContactSection() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F7FF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFCBE0F8)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(
+              color: AppColors.primaryContainer,
+              shape: BoxShape.circle,
+            ),
+            child: const Center(
+              child: Icon(Icons.support_agent_rounded, color: Colors.white, size: 24),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Un conseiller à votre écoute',
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Notre équipe est à votre disposition pour répondre à toutes vos questions.',
+                  style: TextStyle(
+                    fontFamily: 'HankenGrotesk',
+                    fontSize: 11,
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: _contactAgent,
+            icon: const Icon(Icons.chat_bubble_outline_rounded, size: 14),
+            label: const Text('Nous contacter'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              textStyle: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _contactAgent() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.chat_rounded, color: AppColors.primary, size: 28),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Un accompagnement personnalisé',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.onSurface,
+                        ),
+                      ),
+                      Text(
+                        'Messagerie instantanée & assistance',
+                        style: TextStyle(
+                          fontFamily: 'HankenGrotesk',
+                          fontSize: 12,
+                          color: AppColors.secondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Vous serez mis en relation directe avec l\'agent ImmoPro responsable de la vérification et de l\'inspection physique de ce bien.',
+              style: TextStyle(
+                fontFamily: 'HankenGrotesk',
+                fontSize: 14,
+                color: AppColors.onSurfaceVariant,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Ouverture de la discussion avec l\'agent... (Messagerie style WhatsApp bientôt disponible)'),
+                      backgroundColor: AppColors.primary,
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.send_rounded, size: 18),
+                label: const Text('Démarrer la discussion'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  textStyle: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Équipements & Caractéristiques ───────────────────────────────────────
+  Widget _buildCaracteristiquesSection() {
+    final carac = _property.caracteristiques;
+    if (carac.isEmpty) return const SizedBox.shrink();
+
+    final items = <Map<String, dynamic>>[];
+    carac.forEach((key, val) {
+      if (val != null && val != false && val != '' && val != 0) {
+        final label = key
+            .replaceAll('_', ' ')
+            .split(' ')
+            .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
+            .join(' ');
+
+        IconData icon = Icons.check_circle_outline_rounded;
+        if (key.contains('eau')) {
+          icon = Icons.water_drop_outlined;
+        } else if (key.contains('electricite')) {
+          icon = Icons.bolt_outlined;
+        } else if (key.contains('wifi') || key.contains('internet') || key.contains('fibre')) {
+          icon = Icons.wifi_rounded;
+        } else if (key.contains('clima')) {
+          icon = Icons.ac_unit_rounded;
+        } else if (key.contains('piscine')) {
+          icon = Icons.pool_rounded;
+        } else if (key.contains('jardin')) {
+          icon = Icons.park_outlined;
+        } else if (key.contains('garage') || key.contains('parking')) {
+          icon = Icons.directions_car_rounded;
+        } else if (key.contains('meuble')) {
+          icon = Icons.chair_outlined;
+        } else if (key.contains('camera') || key.contains('securite')) {
+          icon = Icons.security_rounded;
+        } else if (key.contains('etat')) {
+          icon = Icons.info_outline_rounded;
+        }
+
+        String valueText = '';
+        if (val is bool && val == true) {
+          valueText = 'Oui';
+        } else {
+          valueText = val.toString();
+        }
+
+        items.add({
+          'label': label,
+          'value': valueText,
+          'icon': icon,
+        });
+      }
+    });
+
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Équipements & Caractéristiques',
+          style: TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: AppColors.onSurface,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: items.map((item) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.outlineVariant),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(item['icon'] as IconData, size: 16, color: AppColors.primaryContainer),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${item['label']}: ${item['value']}',
+                    style: const TextStyle(
+                      fontFamily: 'HankenGrotesk',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  // ── Localisation (Carte interactive OpenStreetMap) ────────────────────────
   Widget _buildLocationSection() {
     final location = _property.location;
-    if (location.isEmpty) return const SizedBox.shrink();
+    final lat = (_property.latitude != null && _property.latitude != 0)
+        ? _property.latitude!
+        : 5.3599;
+    final lng = (_property.longitude != null && _property.longitude != 0)
+        ? _property.longitude!
+        : -4.0083;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -531,64 +850,170 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
                 color: AppColors.onSurface,
               ),
             ),
-            Text(
-              location.split(',').first.trim(),
-              style: const TextStyle(
-                fontFamily: 'HankenGrotesk',
-                fontSize: 12,
-                color: AppColors.secondary,
+            if (location.isNotEmpty)
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.location_on,
+                      size: 14,
+                      color: AppColors.primaryContainer,
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        location,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'HankenGrotesk',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryContainer,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
         const SizedBox(height: 10),
-        Container(
-          height: 160,
-          decoration: BoxDecoration(
-            color: const Color(0xFFE8F0F9),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: AppColors.outlineVariant.withValues(alpha: 0.3),
-            ),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Stack(
-              children: [
-                CustomPaint(painter: _SimpleMapPainter(), size: Size.infinite),
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.location_on,
-                          color: Colors.white,
-                          size: 14,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          location.split(',').first.trim(),
-                          style: const TextStyle(
-                            fontFamily: 'HankenGrotesk',
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+        GestureDetector(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => PropertyMapNavigationPage(
+                  property: _property,
+                ),
+              ),
+            );
+          },
+          child: Container(
+            height: 220,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppColors.outlineVariant.withValues(alpha: 0.5),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
                 ),
               ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Stack(
+                children: [
+                  FlutterMap(
+                    options: MapOptions(
+                      initialCenter: LatLng(lat, lng),
+                      initialZoom: 15.5,
+                      interactionOptions: const InteractionOptions(
+                        flags: InteractiveFlag.none,
+                      ),
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.immopro.app',
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: LatLng(lat, lng),
+                            width: 50,
+                            height: 50,
+                            child: Column(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.redAccent,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black26,
+                                        blurRadius: 6,
+                                        offset: Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.location_on_rounded,
+                                    color: Colors.white,
+                                    size: 22,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  // Badge Adresse Exacte en Overlay
+                  Positioned(
+                    bottom: 12,
+                    left: 12,
+                    right: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.95),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.outlineVariant),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.my_location_rounded,
+                            color: Colors.redAccent,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  location.isNotEmpty ? location : 'Abidjan, Côte d\'Ivoire',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.onSurface,
+                                  ),
+                                ),
+                                Text(
+                                  '${lat.toStringAsFixed(4)}° N, ${lng.toStringAsFixed(4)}° W',
+                                  style: TextStyle(
+                                    fontFamily: 'HankenGrotesk',
+                                    fontSize: 10,
+                                    color: AppColors.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -596,9 +1021,18 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
     );
   }
 
-  // ── Biens similaires ──────────────────────────────────────────────────────
+  // ── Biens similaires (Dynamiques depuis l'API) ───────────────────────────
   Widget _buildSimilarProperties() {
-    // Section statique — sera remplacée par des données dynamiques plus tard
+    if (_isLoadingSimilar) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: CircularProgressIndicator(color: AppColors.primaryContainer),
+        ),
+      );
+    }
+    if (_similarProperties.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -613,25 +1047,31 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 200,
-          child: ListView(
+          height: 310,
+          child: ListView.builder(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
-            children: [
-              _SimilarCard(
-                label: _property.location.split(',').first.trim(),
-                title: 'Bien similaire',
-                price: formatPriceFcfa(_property.price * 0.85, _property.type),
-                imageUrl: _property.imageUrl,
-              ),
-              const SizedBox(width: 12),
-              _SimilarCard(
-                label: _property.category,
-                title: 'Autre bien',
-                price: formatPriceFcfa(_property.price * 1.1, _property.type),
-                imageUrl: _property.imageUrl,
-              ),
-            ],
+            itemCount: _similarProperties.length,
+            itemBuilder: (context, index) {
+              final prop = _similarProperties[index];
+              return Container(
+                width: 272,
+                margin: const EdgeInsets.only(right: 14),
+                child: PropertyCard(
+                  property: prop,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => PropertyDetailPage(
+                          property: prop,
+                          getDetailUseCase: widget.getDetailUseCase,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
           ),
         ),
       ],
@@ -640,7 +1080,29 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
 
   // ── Barre d'action en bas ─────────────────────────────────────────────────
   Widget _buildBottomBar(BuildContext context, double bottomPad) {
+    bool checkOwner(String actionName) {
+      final currentUser = ServiceLocator.instance.currentUser;
+      final currentUserId = currentUser?.id;
+      final ownerId = _property.userId;
+
+      if (currentUserId != null && ownerId != null && currentUserId.toString() == ownerId.toString()) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Vous êtes le propriétaire de ce bien. Vous ne pouvez pas $actionName votre propre bien.',
+              style: const TextStyle(fontFamily: 'HankenGrotesk'),
+            ),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return true;
+      }
+      return false;
+    }
+
     void showSnack(String action) {
+      if (checkOwner('réserver')) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -653,6 +1115,7 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> {
     }
 
     void ouvrirTunnelLocation() {
+      if (checkOwner('louer')) return;
       final sl = ServiceLocator.instance;
       final ctrl = sl.createLocationController();
       Navigator.of(context).push(
@@ -872,7 +1335,9 @@ class _VideoItemState extends State<_VideoItem> {
 class _CircleBtn extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
-  const _CircleBtn({required this.icon, required this.onTap});
+  final Color? iconColor;
+
+  const _CircleBtn({required this.icon, required this.onTap, this.iconColor});
 
   @override
   Widget build(BuildContext context) {
@@ -892,126 +1357,13 @@ class _CircleBtn extends StatelessWidget {
             ),
           ],
         ),
-        child: Icon(icon, color: AppColors.onSurface, size: 20),
+        child: Icon(icon, color: iconColor ?? AppColors.onSurface, size: 20),
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Carte similaire horizontale
-// ─────────────────────────────────────────────────────────────────────────────
-class _SimilarCard extends StatelessWidget {
-  final String label;
-  final String title;
-  final String price;
-  final String? imageUrl;
-  const _SimilarCard({
-    required this.label,
-    required this.title,
-    required this.price,
-    this.imageUrl,
-  });
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 220,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.outlineVariant.withValues(alpha: 0.3),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1A56A0).withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            child: SizedBox(
-              height: 120,
-              width: double.infinity,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (imageUrl != null && imageUrl!.isNotEmpty)
-                    Image.network(
-                      imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
-                          Container(color: AppColors.surfaceContainerLow),
-                    )
-                  else
-                    Container(color: AppColors.surfaceContainerLow),
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        label,
-                        style: const TextStyle(
-                          fontFamily: 'HankenGrotesk',
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: 'HankenGrotesk',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  price,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primaryContainer,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Visionneuse plein écran avec défilement entre les images
@@ -1247,57 +1599,6 @@ class _ImageViewerPageState extends State<_ImageViewerPage> {
       ),
     );
   }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Mini-carte stylisée pour la section localisation
-// ─────────────────────────────────────────────────────────────────────────────
-class _SimpleMapPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final road = Paint()
-      ..color = Colors.white.withValues(alpha: 0.7)
-      ..strokeWidth = 6
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    final grid = Paint()
-      ..color = Colors.white.withValues(alpha: 0.35)
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke;
-    canvas.drawLine(
-      Offset(0, size.height * 0.45),
-      Offset(size.width, size.height * 0.45),
-      road,
-    );
-    canvas.drawLine(
-      Offset(size.width * 0.4, 0),
-      Offset(size.width * 0.4, size.height),
-      road,
-    );
-    canvas.drawLine(
-      Offset(size.width * 0.7, 0),
-      Offset(size.width * 0.7, size.height),
-      grid,
-    );
-    canvas.drawLine(
-      Offset(0, size.height * 0.7),
-      Offset(size.width, size.height * 0.7),
-      grid,
-    );
-    final park = Paint()
-      ..color = const Color(0xFF4CAF50).withValues(alpha: 0.18)
-      ..style = PaintingStyle.fill;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(size.width * 0.45, size.height * 0.08, 70, 50),
-        const Radius.circular(8),
-      ),
-      park,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_SimpleMapPainter old) => false;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

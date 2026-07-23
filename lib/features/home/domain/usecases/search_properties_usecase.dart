@@ -3,6 +3,7 @@ import '../repositories/home_repository.dart';
 
 class SearchParams {
   final String query;
+  final String? typeBien;
   final String? typeTransaction;
   final double? prixMin;
   final double? prixMax;
@@ -10,6 +11,7 @@ class SearchParams {
 
   const SearchParams({
     required this.query,
+    this.typeBien,
     this.typeTransaction,
     this.prixMin,
     this.prixMax,
@@ -25,6 +27,7 @@ class SearchPropertiesUseCase {
   Future<List<PropertyEntity>> call(SearchParams params) async {
     return repository.searchProperties(
       params.query,
+      typeBien: params.typeBien,
       typeTransaction: params.typeTransaction,
       prixMin: params.prixMin,
       prixMax: params.prixMax,

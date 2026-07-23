@@ -127,6 +127,7 @@ class HomeController extends ChangeNotifier {
     try {
       _properties = await searchPropertiesUseCase(SearchParams(
         query: query,
+        typeBien: _selectedCategory != 'Tous' ? _selectedCategory : null,
         typeTransaction: _filterTypeTransaction,
         prixMin: _filterPrixMin,
         prixMax: _filterPrixMax,

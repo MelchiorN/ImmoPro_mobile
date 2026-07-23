@@ -56,7 +56,7 @@ class ListingModel extends ListingEntity {
       description:     json['description']     as String?,
       price:           (json['prix'] as num?)?.toDouble() ?? 0,
       location:        json['adresse']         as String?  ?? '',
-      typeBien:        json['type_bien']        as String?  ?? '',
+      typeBien:        (json['categorie_nom'] as String?) ?? json['type_bien'] as String? ?? '',
       typeTransaction: json['type_transaction'] as String?  ?? '',
       statut:          statut,
       imageUrl:        imageUrl,

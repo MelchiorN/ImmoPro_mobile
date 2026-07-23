@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/price_formatter.dart';
 import '../../../home/domain/entities/property_entity.dart';
 import '../controllers/location_controller.dart';
 import 'location_contrat_page.dart';
 
-/// Étape 1 du tunnel de location — Sélection de la durée.
-/// Correspond à la maquette dans louer.md.
+/// Étape 1 du tunnel de location — Sélection de la date et de la durée.
 class LocationDureePage extends StatefulWidget {
   final PropertyEntity property;
   final LocationController controller;
@@ -27,61 +26,109 @@ class _LocationDureePageState extends State<LocationDureePage> {
   @override
   void initState() {
     super.initState();
-    _ctrl.addListener(_onControllerChange);
+    _ctrl.addListener(_rebuild);
   }
 
   @override
   void dispose() {
-    _ctrl.removeListener(_onControllerChange);
+    _ctrl.removeListener(_rebuild);
     super.dispose();
   }
 
-  void _onControllerChange() {
-    if (!mounted) return;
-    // Si le controller passe à l'étape contrat → naviguer
-    if (_ctrl.step == LocationStep.contrat && _ctrl.status == LocationStatus.success) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => LocationContratPage(
-            property: widget.property,
-            controller: _ctrl,
-          ),
-        ),
-      );
-    }
-    setState(() {});
+  void _rebuild() {
+    if (mounted) setState(() {});
   }
 
-  void _increment() => _ctrl.setDuree(_ctrl.dureeMois + 1);
-  void _decrement() => _ctrl.setDuree(_ctrl.dureeMois - 1);
+  // ── Ouvrir le date picker ─────────────────────────────────────────────────
+
+  Future<void> _pickDate() async {
+    final today = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _ctrl.dateDebut,
+      firstDate: today,
+      lastDate: DateTime(today.year + 5),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: AppColors.primary,
+            onPrimary: Colors.white,
+            surface: Colors.white,
+            onSurface: AppColors.onSurface,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      _ctrl.setDateDebut(picked);
+    }
+  }
+
+  // ── Continuer → appel API puis navigation directe ─────────────────────────
 
   Future<void> _continuer() async {
     await _ctrl.initierLocation(widget.property.id);
-    if (_ctrl.status == LocationStatus.error && mounted) {
-      _showError(_ctrl.errorMessage ?? 'Erreur');
-    }
-  }
 
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message, style: const TextStyle(fontFamily: 'HankenGrotesk')),
-        backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
+    if (!mounted) return;
+
+    if (_ctrl.status == LocationStatus.error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _ctrl.errorMessage ?? 'Une erreur est survenue.',
+            style: const TextStyle(fontFamily: 'HankenGrotesk'),
+          ),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    // Succès → navigation directe, pas besoin du listener
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => LocationContratPage(
+          property: widget.property,
+          controller: _ctrl,
+        ),
       ),
     );
+  }
+
+  // ── Formatage ─────────────────────────────────────────────────────────────
+
+  String _fmtDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  String _fmtMontant(double v) {
+    final digits = v.toInt().toString().split('');
+    final buf = StringBuffer();
+    for (int i = 0; i < digits.length; i++) {
+      if (i > 0 && (digits.length - i) % 3 == 0) buf.write('\u202F');
+      buf.write(digits[i]);
+    }
+    return '${buf.toString()} FCFA';
   }
 
   @override
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
-    final debut = _ctrl.dateDebut;
-    final fin = _ctrl.dateFinEstimee(debut);
     final total = _ctrl.totalEstime(widget.property.price);
+    final fin = _ctrl.dateFin;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
+    return PopScope(
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          _ctrl.annulerLocationSilencieux();
+        }
+      },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.dark,
+        child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
         bottom: false,
         child: Column(
           children: [
@@ -90,22 +137,15 @@ class _LocationDureePageState extends State<LocationDureePage> {
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildPropertyCard(),
-                    const SizedBox(height: 16),
-                    _buildDureeForm(debut, fin, total),
-                  ],
-                ),
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                child: _buildForm(fin, total),
               ),
             ),
             _buildBottomBar(total, bottomPad),
           ],
         ),
       ),
-    );
+    )));
   }
 
   // ── AppBar ────────────────────────────────────────────────────────────────
@@ -135,147 +175,35 @@ class _LocationDureePageState extends State<LocationDureePage> {
     );
   }
 
-  // ── Barre de progression ─────────────────────────────────────────────────
+  // ── Indicateur de progression (étape 1/3) ─────────────────────────────────
 
   Widget _buildProgressBar() {
-    return Row(
-      children: [
-        Expanded(
-          flex: 1,
-          child: Container(height: 4, color: AppColors.primary),
-        ),
-        Expanded(
-          flex: 2,
-          child: Container(height: 4, color: AppColors.outlineVariant),
-        ),
-      ],
-    );
-  }
-
-  // ── Carte résumé du bien ──────────────────────────────────────────────────
-
-  Widget _buildPropertyCard() {
-    final p = widget.property;
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
         children: [
-          // Image
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            child: SizedBox(
-              height: 160,
-              width: double.infinity,
-              child: p.imageUrl != null && p.imageUrl!.isNotEmpty
-                  ? Image.network(
-                      p.imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _placeholderImage(),
-                    )
-                  : _placeholderImage(),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  p.title,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on_outlined,
-                        size: 14, color: AppColors.secondary),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        p.location,
-                        style: const TextStyle(
-                          fontFamily: 'HankenGrotesk',
-                          fontSize: 12,
-                          color: AppColors.secondary,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                const Divider(height: 1, color: AppColors.outlineVariant),
-                const SizedBox(height: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'LOYER MENSUEL',
-                      style: TextStyle(
-                        fontFamily: 'HankenGrotesk',
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.onSurfaceVariant,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      formatPriceFcfa(p.price, PropertyType.rent),
-                      style: const TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          _ProgressStep(label: 'Informations', active: true, done: false),
+          _ProgressConnector(active: false),
+          _ProgressStep(label: 'Contrat', active: false, done: false),
+          _ProgressConnector(active: false),
+          _ProgressStep(label: 'Paiement', active: false, done: false),
         ],
       ),
     );
   }
 
-  Widget _placeholderImage() {
-    return Container(
-      color: AppColors.surfaceContainerLow,
-      child: const Center(
-        child: Icon(Icons.home_outlined, color: AppColors.outline, size: 48),
-      ),
-    );
-  }
+  // ── Formulaire principal ──────────────────────────────────────────────────
 
-  // ── Formulaire durée ──────────────────────────────────────────────────────
-
-  Widget _buildDureeForm(DateTime debut, DateTime fin, double total) {
+  Widget _buildForm(DateTime fin, double total) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.5)),
+        border:
+            Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.5)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -285,6 +213,7 @@ class _LocationDureePageState extends State<LocationDureePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Titre de section
           const Text(
             'Détails de la location',
             style: TextStyle(
@@ -294,143 +223,130 @@ class _LocationDureePageState extends State<LocationDureePage> {
               color: AppColors.onSurface,
             ),
           ),
-          const SizedBox(height: 16),
-
-          // Bandeau durée minimale
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFD0E1FB),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.info_outline, size: 18, color: Color(0xFF38485D)),
-                SizedBox(width: 8),
-                Text(
-                  'Durée minimale : 3 mois',
-                  style: TextStyle(
-                    fontFamily: 'HankenGrotesk',
-                    fontSize: 14,
-                    color: Color(0xFF38485D),
-                  ),
-                ),
-              ],
+          const SizedBox(height: 6),
+          Text(
+            widget.property.title,
+            style: const TextStyle(
+              fontFamily: 'HankenGrotesk',
+              fontSize: 13,
+              color: AppColors.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 24),
 
-          // Date de début (verrouillée)
-          const Text(
-            'Date de début prévue',
-            style: TextStyle(
-              fontFamily: 'HankenGrotesk',
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.onSurfaceVariant,
-              letterSpacing: 0.6,
-            ),
-          ),
+          // ── Date de début ───────────────────────────────────────────────
+          const _FieldLabel(text: 'Date de début'),
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.outlineVariant),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${debut.day.toString().padLeft(2, '0')}/${debut.month.toString().padLeft(2, '0')}/${debut.year} (Aujourd\'hui)',
-                    style: const TextStyle(
-                      fontFamily: 'HankenGrotesk',
-                      fontSize: 14,
-                      color: AppColors.onSurfaceVariant,
+          GestureDetector(
+            onTap: _pickDate,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.outlineVariant),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.calendar_today_outlined,
+                      size: 18, color: AppColors.primary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _fmtDate(_ctrl.dateDebut),
+                      style: const TextStyle(
+                        fontFamily: 'HankenGrotesk',
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.onSurface,
+                      ),
                     ),
                   ),
-                ),
-                const Icon(Icons.calendar_today_outlined,
-                    size: 18, color: AppColors.onSurfaceVariant),
-              ],
+                  const Icon(Icons.edit_outlined,
+                      size: 16, color: AppColors.onSurfaceVariant),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 24),
 
-          // Stepper durée
-          const Text(
-            'Durée de la location (mois)',
-            style: TextStyle(
-              fontFamily: 'HankenGrotesk',
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.onSurfaceVariant,
-              letterSpacing: 0.6,
-            ),
-          ),
+          // ── Durée ────────────────────────────────────────────────────────
+          const _FieldLabel(text: 'Durée de la location (mois)'),
           const SizedBox(height: 8),
           Container(
             height: 56,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: AppColors.outlineVariant),
               color: Colors.white,
             ),
             child: Row(
               children: [
-                // Bouton -
-                _StepperButton(
+                _StepperBtn(
                   icon: Icons.remove,
-                  onTap: _ctrl.dureeMois > 3 ? _decrement : null,
+                  enabled: _ctrl.dureeMois > 1,
+                  onTap: () => _ctrl.setDuree(_ctrl.dureeMois - 1),
                 ),
-                // Valeur
                 Expanded(
                   child: Center(
                     child: Text(
                       '${_ctrl.dureeMois}',
                       style: const TextStyle(
                         fontFamily: 'Manrope',
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
                         color: AppColors.onSurface,
                       ),
                     ),
                   ),
                 ),
-                // Bouton +
-                _StepperButton(
+                _StepperBtn(
                   icon: Icons.add,
-                  onTap: _ctrl.dureeMois < 36 ? _increment : null,
+                  enabled: _ctrl.dureeMois < 36,
+                  onTap: () => _ctrl.setDuree(_ctrl.dureeMois + 1),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 6),
+          const Text(
+            'Durée minimale : 1 mois  ·  Maximum : 36 mois',
+            style: TextStyle(
+              fontFamily: 'HankenGrotesk',
+              fontSize: 11,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 24),
 
-          // Récapitulatif fin + total
+          // ── Récapitulatif ────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLow,
+              color: AppColors.primary.withValues(alpha: 0.04),
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.12)),
             ),
             child: Column(
               children: [
                 _RecapRow(
-                  label: 'Date de fin estimée :',
-                  value:
-                      '${fin.day.toString().padLeft(2, '0')}/${fin.month.toString().padLeft(2, '0')}/${fin.year}',
-                  bold: false,
+                  label: 'Date de fin estimée',
+                  value: _fmtDate(fin),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 const Divider(height: 1, color: AppColors.outlineVariant),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
+                _RecapRow(
+                  label: 'Loyer mensuel',
+                  value: _fmtMontant(widget.property.price),
+                ),
+                const SizedBox(height: 8),
                 _RecapRow(
                   label: 'Total à payer',
-                  value: _formatTotal(total),
-                  bold: true,
-                  valueColor: AppColors.primary,
+                  value: _fmtMontant(total),
+                  highlight: true,
                 ),
               ],
             ),
@@ -446,9 +362,10 @@ class _LocationDureePageState extends State<LocationDureePage> {
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPad),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.97),
+        color: Colors.white,
         border: Border(
-          top: BorderSide(color: AppColors.outlineVariant.withValues(alpha: 0.4)),
+          top: BorderSide(
+              color: AppColors.outlineVariant.withValues(alpha: 0.4)),
         ),
         boxShadow: [
           BoxShadow(
@@ -460,7 +377,7 @@ class _LocationDureePageState extends State<LocationDureePage> {
       ),
       child: Row(
         children: [
-          // Total (visible sur grands écrans / tablette)
+          // Total à gauche
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -478,7 +395,7 @@ class _LocationDureePageState extends State<LocationDureePage> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _formatTotal(total),
+                  _fmtMontant(total),
                   style: const TextStyle(
                     fontFamily: 'Manrope',
                     fontSize: 16,
@@ -490,6 +407,7 @@ class _LocationDureePageState extends State<LocationDureePage> {
             ),
           ),
           const SizedBox(width: 12),
+          // Bouton Continuer
           SizedBox(
             height: 52,
             child: ElevatedButton(
@@ -497,7 +415,7 @@ class _LocationDureePageState extends State<LocationDureePage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32),
+                padding: const EdgeInsets.symmetric(horizontal: 28),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -532,44 +450,58 @@ class _LocationDureePageState extends State<LocationDureePage> {
       ),
     );
   }
-
-  String _formatTotal(double total) {
-    final digits = total.toInt().toString().split('');
-    final buf = StringBuffer();
-    for (int i = 0; i < digits.length; i++) {
-      if (i > 0 && (digits.length - i) % 3 == 0) buf.write('\u202F');
-      buf.write(digits[i]);
-    }
-    return '${buf.toString()} FCFA';
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Widgets internes
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _StepperButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback? onTap;
+class _FieldLabel extends StatelessWidget {
+  final String text;
+  const _FieldLabel({required this.text});
 
-  const _StepperButton({required this.icon, this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontFamily: 'HankenGrotesk',
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: AppColors.onSurfaceVariant,
+        letterSpacing: 0.3,
+      ),
+    );
+  }
+}
+
+class _StepperBtn extends StatelessWidget {
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _StepperBtn({
+    required this.icon,
+    required this.enabled,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       child: Container(
         width: 56,
         height: double.infinity,
         decoration: BoxDecoration(
-          color: onTap != null
-              ? AppColors.primary.withValues(alpha: 0.06)
+          color: enabled
+              ? AppColors.primary.withValues(alpha: 0.07)
               : AppColors.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(7),
+          borderRadius: BorderRadius.circular(9),
         ),
         child: Icon(
           icon,
-          color: onTap != null ? AppColors.primary : AppColors.outline,
+          color: enabled ? AppColors.primary : AppColors.outline,
           size: 22,
         ),
       ),
@@ -580,14 +512,12 @@ class _StepperButton extends StatelessWidget {
 class _RecapRow extends StatelessWidget {
   final String label;
   final String value;
-  final bool bold;
-  final Color? valueColor;
+  final bool highlight;
 
   const _RecapRow({
     required this.label,
     required this.value,
-    this.bold = false,
-    this.valueColor,
+    this.highlight = false,
   });
 
   @override
@@ -599,7 +529,9 @@ class _RecapRow extends StatelessWidget {
           label,
           style: TextStyle(
             fontFamily: 'HankenGrotesk',
-            fontSize: bold ? 16 : 14,
+            fontSize: highlight ? 15 : 13,
+            fontWeight:
+                highlight ? FontWeight.w600 : FontWeight.w400,
             color: AppColors.onSurfaceVariant,
           ),
         ),
@@ -607,12 +539,76 @@ class _RecapRow extends StatelessWidget {
           value,
           style: TextStyle(
             fontFamily: 'Manrope',
-            fontSize: bold ? 22 : 14,
-            fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
-            color: valueColor ?? AppColors.onSurface,
+            fontSize: highlight ? 20 : 13,
+            fontWeight:
+                highlight ? FontWeight.w800 : FontWeight.w600,
+            color: highlight ? AppColors.primary : AppColors.onSurface,
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ProgressStep extends StatelessWidget {
+  final String label;
+  final bool active;
+  final bool done;
+
+  const _ProgressStep({
+    required this.label,
+    required this.active,
+    required this.done,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 4,
+            decoration: BoxDecoration(
+              color: (active || done) ? AppColors.primary : AppColors.outlineVariant,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'HankenGrotesk',
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color:
+                  (active || done) ? AppColors.primary : AppColors.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgressConnector extends StatelessWidget {
+  final bool active;
+  const _ProgressConnector({required this.active});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 8,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 4,
+            color: active ? AppColors.primary : AppColors.outlineVariant,
+          ),
+          const SizedBox(height: 4 + 10 + 4), // aligne avec le texte en dessous
+        ],
+      ),
     );
   }
 }

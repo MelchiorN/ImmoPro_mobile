@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../domain/entities/category_schema_entity.dart';
 import '../controllers/publish_controller.dart';
 import '../widgets/publish_app_bar.dart';
 import '../widgets/publish_bottom_bar.dart';
@@ -28,28 +29,34 @@ class _Step1InfoPageState extends State<Step1InfoPage> {
   final _superficieCtrl = TextEditingController();
   final _addressCtrl  = TextEditingController();
   final _descCtrl     = TextEditingController();
+  final _roomsCtrl    = TextEditingController(text: '1');
+  final _bathCtrl     = TextEditingController(text: '1');
   int  _descLength    = 0;
   String _selectedType        = 'Appartement';
   // ignore: prefer_final_fields
   String _selectedTransaction = 'location'; // Hardcodé à 'location' comme convenu
 
-  final List<String> _propertyTypes = [
+  List<String> _propertyTypes = [
     'Appartement', 'Maison', 'Villa', 'Terrain',
     'Bureau / Commerce', 'Chambre / Studio',
   ];
+  Map<String, String> _typeToSlugMap = {};
   // ignore: unused_field
   final List<String> _transactions = ['Vente', 'Location', 'Colocation'];
 
   /// Slug API correspondant au type sélectionné
   String get _slug {
+    if (_typeToSlugMap.containsKey(_selectedType)) {
+      return _typeToSlugMap[_selectedType]!;
+    }
     switch (_selectedType) {
-      case 'Appartement':      return 'appartement';
-      case 'Maison':           return 'maison';
-      case 'Villa':            return 'villa';
-      case 'Terrain':          return 'terrain';
+      case 'Appartement':       return 'appartement';
+      case 'Maison':            return 'maison';
+      case 'Villa':             return 'villa';
+      case 'Terrain':           return 'terrain';
       case 'Bureau / Commerce': return 'bureau_commerce';
-      case 'Chambre / Studio': return 'chambre_studio';
-      default:                 return _selectedType.toLowerCase();
+      case 'Chambre / Studio':  return 'chambre_studio';
+      default:                  return _selectedType.toLowerCase().replaceAll(' ', '_');
     }
   }
 
@@ -61,9 +68,20 @@ class _Step1InfoPageState extends State<Step1InfoPage> {
     _controller = ServiceLocator.instance.createPublishController();
     _descCtrl.addListener(() =>
         setState(() => _descLength = _descCtrl.text.length));
-    // Charger le schéma pour le type par défaut
-    WidgetsBinding.instance.addPostFrameCallback((_) =>
-        _controller.loadCategorySchema(_slug));
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final fetched = await _controller.fetchCategories();
+      if (fetched.isNotEmpty && mounted) {
+        setState(() {
+          _propertyTypes = fetched.map((c) => c['nom']!).toList();
+          _typeToSlugMap = { for (var c in fetched) c['nom']! : c['slug']! };
+          if (!_propertyTypes.contains(_selectedType)) {
+            _selectedType = _propertyTypes.first;
+          }
+        });
+      }
+      _controller.loadCategorySchema(_slug);
+    });
   }
 
   @override
@@ -71,6 +89,7 @@ class _Step1InfoPageState extends State<Step1InfoPage> {
     _titleCtrl.dispose(); _priceCtrl.dispose();
     _surfaceCtrl.dispose(); _superficieCtrl.dispose();
     _addressCtrl.dispose(); _descCtrl.dispose();
+    _roomsCtrl.dispose(); _bathCtrl.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -78,7 +97,7 @@ class _Step1InfoPageState extends State<Step1InfoPage> {
   void _onTypeChanged(String? v) {
     if (v == null) return;
     setState(() => _selectedType = v);
-    _controller.updatePropertyType(v);
+    _controller.updatePropertyType(_slug);
     _controller.loadCategorySchema(_slug);
   }
 
@@ -86,7 +105,29 @@ class _Step1InfoPageState extends State<Step1InfoPage> {
     FocusScope.of(context).unfocus();
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    _controller.updatePropertyType(_selectedType);
+    // ── Validation croisée : étage de l'appartement ≤ nombre d'étages ──
+    final nbEtages = _controller.getCaracteristique('nombre_etages');
+    final etageAppart = _controller.getCaracteristique('etage_appartement');
+    if (nbEtages != null && etageAppart != null) {
+      final total = (nbEtages is num) ? nbEtages.toInt() : int.tryParse(nbEtages.toString()) ?? 0;
+      final etage = (etageAppart is num) ? etageAppart.toInt() : int.tryParse(etageAppart.toString()) ?? 0;
+      if (etage > total) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'L\'étage de l\'appartement ($etage) ne peut pas dépasser le nombre d\'étages de l\'immeuble ($total).',
+              style: const TextStyle(fontFamily: 'HankenGrotesk'),
+            ),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+        return;
+      }
+    }
+
+    _controller.updatePropertyType(_slug);
     _controller.updateTransactionType(_selectedTransaction);
     _controller.updateTitle(_titleCtrl.text.trim());
     _controller.updatePrice(_priceCtrl.text.trim());
@@ -98,6 +139,14 @@ class _Step1InfoPageState extends State<Step1InfoPage> {
       _controller.updateSuperficie(_superficieCtrl.text.trim());
     }
     _controller.updateDescription(_descCtrl.text.trim());
+
+    // Mettre à jour rooms / bathrooms depuis les champs texte
+    if (_showRooms) {
+      final rooms = int.tryParse(_roomsCtrl.text.trim()) ?? 1;
+      final baths = int.tryParse(_bathCtrl.text.trim()) ?? 1;
+      _controller.updateRooms(rooms);
+      _controller.updateBathrooms(baths);
+    }
 
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => Step2MediaPage(controller: _controller),
@@ -216,10 +265,17 @@ class _Step1InfoPageState extends State<Step1InfoPage> {
                         children: [
                           _SectionLabel('Pièces'),
                           const SizedBox(height: 8),
-                          _StepperField(
-                            value: _controller.draft.rooms,
-                            onDecrement: _controller.decrementRooms,
-                            onIncrement: _controller.incrementRooms,
+                          _AppTextField(
+                            controller: _roomsCtrl,
+                            hint: '1',
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) return 'Requis';
+                              final n = int.tryParse(v);
+                              if (n == null || n < 1) return 'Min. 1';
+                              return null;
+                            },
                           ),
                         ],
                       )),
@@ -229,10 +285,17 @@ class _Step1InfoPageState extends State<Step1InfoPage> {
                         children: [
                           _SectionLabel('Salles de bain'),
                           const SizedBox(height: 8),
-                          _StepperField(
-                            value: _controller.draft.bathrooms,
-                            onDecrement: _controller.decrementBathrooms,
-                            onIncrement: _controller.incrementBathrooms,
+                          _AppTextField(
+                            controller: _bathCtrl,
+                            hint: '1',
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) return 'Requis';
+                              final n = int.tryParse(v);
+                              if (n == null || n < 1) return 'Min. 1';
+                              return null;
+                            },
                           ),
                         ],
                       )),
@@ -325,26 +388,8 @@ class _Step1InfoPageState extends State<Step1InfoPage> {
                       _controller.schema!.attributs.isNotEmpty) ...[
                     _DynamicSectionHeader(nom: _controller.schema!.nom),
                     const SizedBox(height: 12),
-                      ..._controller.schema!.attributs.where((attr) {
-                        // Logique conditionnelle pour le parking et garage
-                        if (attr.nomChamp == 'type_parking' || attr.nomChamp == 'capacite_parking' || attr.nomChamp == 'parking_partage') {
-                          return _controller.getCaracteristique('parking_disponible') == true;
-                        }
-                        if (attr.nomChamp == 'capacite_garage') {
-                          return _controller.getCaracteristique('garage_disponible') == true;
-                        }
-                        return true;
-                      }).map((attr) =>
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: DynamicFieldWidget(
-                          attribut: attr,
-                          value: _controller.getCaracteristique(attr.nomChamp),
-                          onChanged: (v) =>
-                              _controller.setCaracteristique(attr.nomChamp, v),
-                        ),
-                      ),
-                    ),
+                    // Afficher les champs dynamiques par paires côte à côte
+                    ..._buildDynamicFieldRows(),
                   ],
                   const SizedBox(height: 80),
                 ],
@@ -378,6 +423,101 @@ class _Step1InfoPageState extends State<Step1InfoPage> {
       case 'Bureau / Commerce': return 'Décrivez le local : état, équipements, accès…';
       default:                  return 'Décrivez les atouts de votre bien…';
     }
+  }
+
+  /// Construit les champs dynamiques en paires côte à côte.
+  /// Les booléens et textes restent en pleine largeur,
+  /// les nombre/enum/date sont groupés 2 par ligne.
+  List<Widget> _buildDynamicFieldRows() {
+    final filteredAttrs = _controller.schema!.attributs.where((attr) {
+      // Logique conditionnelle pour le parking et garage
+      if (attr.nomChamp == 'type_parking' ||
+          attr.nomChamp == 'capacite_parking' ||
+          attr.nomChamp == 'parking_partage') {
+        return _controller.getCaracteristique('parking_disponible') == true;
+      }
+      if (attr.nomChamp == 'capacite_garage') {
+        return _controller.getCaracteristique('garage_disponible') == true;
+      }
+      return true;
+    }).toList();
+
+    // Séparer les champs "pleine largeur" (booleen, texte) des "compacts" (nombre, enum, date)
+    final List<Widget> rows = [];
+    final List<AttributDefinitionEntity> compactQueue = [];
+
+    void flushCompactQueue() {
+      while (compactQueue.length >= 2) {
+        final a = compactQueue.removeAt(0);
+        final b = compactQueue.removeAt(0);
+        rows.add(Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: DynamicFieldWidget(
+                  attribut: a,
+                  value: _controller.getCaracteristique(a.nomChamp),
+                  onChanged: (v) => _controller.setCaracteristique(a.nomChamp, v),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DynamicFieldWidget(
+                  attribut: b,
+                  value: _controller.getCaracteristique(b.nomChamp),
+                  onChanged: (v) => _controller.setCaracteristique(b.nomChamp, v),
+                ),
+              ),
+            ],
+          ),
+        ));
+      }
+      // S'il reste un champ impair
+      if (compactQueue.isNotEmpty) {
+        final a = compactQueue.removeAt(0);
+        rows.add(Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: DynamicFieldWidget(
+                  attribut: a,
+                  value: _controller.getCaracteristique(a.nomChamp),
+                  onChanged: (v) => _controller.setCaracteristique(a.nomChamp, v),
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(child: SizedBox()),
+            ],
+          ),
+        ));
+      }
+    }
+
+    for (final attr in filteredAttrs) {
+      final isFullWidth = attr.typeChamp == 'booleen' || attr.typeChamp == 'texte';
+
+      if (isFullWidth) {
+        // D'abord vider la file de champs compacts
+        flushCompactQueue();
+        rows.add(Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: DynamicFieldWidget(
+            attribut: attr,
+            value: _controller.getCaracteristique(attr.nomChamp),
+            onChanged: (v) => _controller.setCaracteristique(attr.nomChamp, v),
+          ),
+        ));
+      } else {
+        compactQueue.add(attr);
+      }
+    }
+    // Vider le reste
+    flushCompactQueue();
+
+    return rows;
   }
 }
 
@@ -544,42 +684,4 @@ class _AppTextField extends StatelessWidget {
       ),
     );
   }
-}
-
-class _StepperField extends StatelessWidget {
-  final int value;
-  final VoidCallback onDecrement;
-  final VoidCallback onIncrement;
-  const _StepperField({required this.value, required this.onDecrement, required this.onIncrement});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.outlineVariant),
-      ),
-      child: Row(children: [
-        _Btn(icon: Icons.remove_rounded, onTap: onDecrement),
-        Expanded(child: Center(child: Text('$value',
-          style: const TextStyle(fontFamily: 'Manrope', fontSize: 18,
-              fontWeight: FontWeight.w700, color: AppColors.onSurface)))),
-        _Btn(icon: Icons.add_rounded, onTap: onIncrement),
-      ]),
-    );
-  }
-}
-
-class _Btn extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  const _Btn({required this.icon, required this.onTap});
-  @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(12),
-    child: SizedBox(width: 44, height: 48,
-      child: Icon(icon, color: AppColors.primary, size: 20)),
-  );
 }

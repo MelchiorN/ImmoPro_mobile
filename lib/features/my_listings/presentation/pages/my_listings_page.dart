@@ -173,6 +173,7 @@ class _AnnonceTab extends StatelessWidget {
     ('Tous', null),
     ('En attente', 'en_attente'),
     ('En vérification', 'en_verification'),
+    ('Validé', 'valide'),
     ('Publié', 'publie'),
     ('Rejeté', 'rejete'),
   ];
